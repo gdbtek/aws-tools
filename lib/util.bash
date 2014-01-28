@@ -10,7 +10,7 @@ function trimString()
     echo "${1}" | sed -e 's/^ *//g' -e 's/ *$//g'
 }
 
-function isEmptyString
+function isEmptyString()
 {
     if [[ "$(trimString ${1})" = '' ]]
     then
