@@ -1,6 +1,6 @@
 #!/bin/bash
 
-encodeURL()
+function encodeURL()
 {
     local length="${#1}"
 
@@ -22,7 +22,7 @@ encodeURL()
     done
 }
 
-signS3URL()
+function signS3URL()
 {
     local expire="$(($(date +%s) + 900))"
     local signature="$(echo -en "${1}\n\n\n${expire}\n/${2}/${3}" | openssl dgst -sha1 -binary -hmac "${5}" | openssl base64)"
