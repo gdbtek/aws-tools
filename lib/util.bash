@@ -1,11 +1,11 @@
 #!/bin/bash
 
-function error
+function error()
 {
     echo -e "\033[1;31m${1}\033[0m" 1>&2
 }
 
-function trimString
+function trimString()
 {
     echo "${1}" | sed -e 's/^ *//g' -e 's/ *$//g'
 }

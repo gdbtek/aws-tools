@@ -1,6 +1,6 @@
 #!/bin/bash
 
-function displayUsage
+function displayUsage()
 {
     local scriptName="$(basename ${0})"
 
@@ -57,17 +57,17 @@ function main()
 
     OPTIND=1
 
-    if [[ "$(isEmptyString ${method})" = 'true' || "$(isEmptyString ${bucket})" = 'true' || "$(isEmptyString ${fileName})" = 'true' || "$(isEmptyString ${awsAccessKeyID})" || "$(isEmptyString ${awsSecretAccessKey})" ]]
+    if [[ "$(isEmptyString ${method})" = 'true' || "$(isEmptyString ${bucket})" = 'true' || "$(isEmptyString ${fileName})" = 'true' || "$(isEmptyString ${awsAccessKeyID})" = 'true' || "$(isEmptyString ${awsSecretAccessKey})" = 'true' ]]
     then
        error 'ERROR: method, bucket, fileName, awsAccessKeyID or awsSecretAccessKey not found!'
        displayUsage
     fi
 
     local expire="$(($(date +%s) + 900))"
-    local signature="$(echo -en "${1}\n\n\n${expire}\n/${2}/${3}" | openssl dgst -sha1 -binary -hmac "${5}" | openssl base64)"
-    local query="AWSAccessKeyId=$(encodeURL "${4}")&Expires=${expire}&Signature=$(encodeURL "${signature}")"
+    local signature="$(echo -en "${method}\n\n\n${expire}\n/${bucket}/${fileName}" | openssl dgst -sha1 -binary -hmac "${awsSecretAccessKey}" | openssl base64)"
+    local query="AWSAccessKeyId=$(encodeURL "${awsAccessKeyID}")&Expires=${expire}&Signature=$(encodeURL "${signature}")"
 
-    echo "http://s3.amazonaws.com/${2}/${3}?${query}"
+    echo "http://s3.amazonaws.com/${bucket}/${fileName}?${query}"
 }
 
 main "$@"
