@@ -26,6 +26,12 @@ function displayUsage()
 
 function main()
 {
+
+    # defaults based on env vars used by Boto, awscli and other tools
+    local awsAccessKeyID=$AWS_ACCESS_KEY_ID
+    local awsSecretAccessKey=$AWS_SECRET_ACCESS_KEY
+    local region=$AWS_DEFAULT_REGION
+
     appPath="$(cd "$(dirname "${0}")" && pwd)"
 
     source "${appPath}/lib/util.bash" || exit 1
@@ -40,7 +46,7 @@ function main()
                local method="${OPTARG}"
                ;;
             r)
-               local region="s3-${OPTARG}.amazonaws.com"
+               local region="${OPTARG}"
                ;;
             b)
                local bucket="${OPTARG}"
@@ -67,11 +73,12 @@ function main()
        displayUsage
     fi
 
+    local endpoint="$("$(isEmptyString ${region})" = 'true' && echo 's3.amazonaws.com' || echo 's3-'${region}'.amazonaws.com')"
     local expire="$(($(date +%s) + 900))"
     local signature="$(echo -en "${method}\n\n\n${expire}\n/${bucket}/${fileName}" | openssl dgst -sha1 -binary -hmac "${awsSecretAccessKey}" | openssl base64)"
     local query="AWSAccessKeyId=$(encodeURL "${awsAccessKeyID}")&Expires=${expire}&Signature=$(encodeURL "${signature}")"
 
-    echo "http://${region:="s3.amazonaws.com"}/${bucket}/${fileName}?${query}"
+    echo "http://${endpoint}/${bucket}/${fileName}?${query}"
 }
 
 main "$@"
