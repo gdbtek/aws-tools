@@ -6,11 +6,11 @@ function displayUsage()
 
     echo -e "\033[1;35m"
     echo    "SYNOPSIS :"
-    echo -e "    ${scriptName} -h -m <METHOD> -b <BUCKET_NAME> -f <FILE_NAME> -i <AWS_ACCESS_KEY_ID> -s <AWS_SECRET_ACCESS_KEY>\n"
+    echo -e "    ${scriptName} -h -m <METHOD> -r <REGION_NAME> -b <BUCKET_NAME> -f <FILE_NAME> -i <AWS_ACCESS_KEY_ID> -s <AWS_SECRET_ACCESS_KEY>\n"
     echo    "DESCRIPTION :"
     echo    "    -h    Help page"
     echo    "    -m    Method (require)"
-    echo    "    -r    Region (optional -- default is 's3.amazonaws.com')"
+    echo    "    -r    Region (optional)"
     echo    "    -b    Bucket name (require)"
     echo    "    -f    File name (require)"
     echo    "    -i    AWS Access Key ID (require)"
