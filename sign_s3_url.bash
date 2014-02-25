@@ -29,9 +29,9 @@ function main()
 {
 
     # defaults based on env vars used by Boto, awscli and other tools
-    local awsAccessKeyID=$AWS_ACCESS_KEY_ID
-    local awsSecretAccessKey=$AWS_SECRET_ACCESS_KEY
-    local region=$AWS_DEFAULT_REGION
+    local awsAccessKeyID="${AWS_ACCESS_KEY_ID}"
+    local awsSecretAccessKey="${AWS_SECRET_ACCESS_KEY}"
+    local region="${AWS_DEFAULT_REGION}"
 
     appPath="$(cd "$(dirname "${0}")" && pwd)"
 
@@ -68,7 +68,7 @@ function main()
 
     OPTIND=1
 
-    if [[  "$(isEmptyString ${method})" = 'true' || "$(isEmptyString ${bucket})" = 'true' || "$(isEmptyString ${fileName})" = 'true' || "$(isEmptyString ${awsAccessKeyID})" = 'true' || "$(isEmptyString ${awsSecretAccessKey})" = 'true' ]]
+    if [[ "$(isEmptyString ${method})" = 'true' || "$(isEmptyString ${bucket})" = 'true' || "$(isEmptyString ${fileName})" = 'true' || "$(isEmptyString ${awsAccessKeyID})" = 'true' || "$(isEmptyString ${awsSecretAccessKey})" = 'true' ]]
     then
        error 'ERROR: method, bucket, fileName, awsAccessKeyID or awsSecretAccessKey not found!'
        displayUsage
