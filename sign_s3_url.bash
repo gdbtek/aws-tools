@@ -19,7 +19,7 @@ function displayUsage()
     echo    "EXAMPLES :"
     echo    "    ${scriptName} -h"
     echo    "    ${scriptName} -m 'GET' -r 'us-west-1' -b 'my_bucket_name' -f 'my_path/my_file.txt' -i '5KI6IA4AXMA39FV7O4E0' -s 'as3f9jfghihsGIEIGgwigwegjgep02323ffafAFWE'"
-    echo -e "    ${scriptName} -m 'GET' -b 'my_other_bucket' -f 'my_path_a/my_file_2.txt' \033[1;35m#uses default AWS_* environment variables"
+    echo -e "    ${scriptName} -m 'GET' -b 'my_other_bucket' -f 'my_path_a/my_file_2.txt'"
     echo -e "\033[0m"
 
     exit 1
