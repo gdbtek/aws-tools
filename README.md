@@ -19,5 +19,5 @@ DESCRIPTION :
 EXAMPLES :
     sign_s3_url.bash -h
     sign_s3_url.bash -m 'GET' -r 'us-west-1' -b 'my_bucket_name' -f 'my_path/my_file.txt' -i '5KI6IA4AXMA39FV7O4E0' -s 'as3f9jfghihsGIEIGgwigwegjgep02323ffafAFWE'
-    sign_s3_url.bash -m 'GET' -b 'my_other_bucket' -f 'my_path_a/my_file_2.txt' #uses default AWS_* environment variables
+    sign_s3_url.bash -m 'GET' -b 'my_other_bucket' -f 'my_path_a/my_file_2.txt'
 ```
