@@ -16,13 +16,14 @@ DESCRIPTION :
     --file-path                File path (require)
     --aws-access-key-id        AWS Access Key ID (optional, defaults to $AWS_ACCESS_KEY_ID)
     --aws-secret-access-key    AWS Secret Access Key (optional, defaults to $AWS_SECRET_ACCESS_KEY)
-    --minute-expire            Minutes to expire signed URL (optional, defaults to 15)
+    --minute-expire            Minutes to expire signed URL (optional, defaults to 15 minutes)
 
 EXAMPLES :
     ./sign_s3_url.bash --help
     ./sign_s3_url.bash --bucket 'my_bucket_name' --file-path 'my_path/my_file.txt'
     ./sign_s3_url.bash
         --region 'us-west-1' --bucket 'my_bucket_name' --file-path 'my_path/my_file.txt'
-        --aws-access-key-id '5KI6IA4AXMA39FV7O4E0' --aws-secret-access-key '5N2j9gJlw9azyLEVpbIOn/tZ2u3sVjjHM03qJfIA'
+        --aws-access-key-id '5KI6IA4AXMA39FV7O4E0'
+        --aws-secret-access-key '5N2j9gJlw9azyLEVpbIOn/tZ2u3sVjjHM03qJfIA'
         --minute-expire 30
 ```

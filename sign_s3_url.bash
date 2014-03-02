@@ -19,14 +19,15 @@ function displayUsage()
     echo    "    --file-path                File path (require)"
     echo    "    --aws-access-key-id        AWS Access Key ID (optional, defaults to \$AWS_ACCESS_KEY_ID)"
     echo    "    --aws-secret-access-key    AWS Secret Access Key (optional, defaults to \$AWS_SECRET_ACCESS_KEY)"
-    echo    "    --minute-expire            Minutes to expire signed URL (optional, defaults to ${minuteExpire})"
+    echo    "    --minute-expire            Minutes to expire signed URL (optional, defaults to ${minuteExpire} minutes)"
     echo -e "\033[1;36m"
     echo    "EXAMPLES :"
     echo    "    ./${scriptName} --help"
     echo    "    ./${scriptName} --bucket 'my_bucket_name' --file-path 'my_path/my_file.txt'"
     echo    "    ./${scriptName}"
     echo    "        --region 'us-west-1' --bucket 'my_bucket_name' --file-path 'my_path/my_file.txt'"
-    echo    "        --aws-access-key-id '5KI6IA4AXMA39FV7O4E0' --aws-secret-access-key '5N2j9gJlw9azyLEVpbIOn/tZ2u3sVjjHM03qJfIA'"
+    echo    "        --aws-access-key-id '5KI6IA4AXMA39FV7O4E0'"
+    echo    "        --aws-secret-access-key '5N2j9gJlw9azyLEVpbIOn/tZ2u3sVjjHM03qJfIA'"
     echo    "        --minute-expire 30"
     echo -e "\033[0m"
 
@@ -44,7 +45,9 @@ function generateSignURL()
 
     local endPoint="$("$(isEmptyString ${region})" = 'true' && echo 's3.amazonaws.com' || echo "s3-${region}.amazonaws.com")"
     local expire="$(($(date +%s) + ${minuteExpire} * 60))"
-    local signature="$(echo -en "GET\n\n\n${expire}\n/${bucket}/${filePath}" | openssl dgst -sha1 -binary -hmac "${awsSecretAccessKey}" | openssl base64)"
+    local signature="$(echo -en "GET\n\n\n${expire}\n/${bucket}/${filePath}" | \
+                       openssl dgst -sha1 -binary -hmac "${awsSecretAccessKey}" | \
+                       openssl base64)"
     local query="AWSAccessKeyId=$(encodeURL "${awsAccessKeyID}")&Expires=${expire}&Signature=$(encodeURL "${signature}")"
 
     echo "http://${endPoint}/${bucket}/${filePath}?${query}"
