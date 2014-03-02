@@ -10,6 +10,7 @@ function displayUsage()
     echo    "         --help"
     echo    "         --region <REGION> --bucket <BUCKET_NAME> --file <FILE_PATH>"
     echo    "         --aws-access-key-id <AWS_ACCESS_KEY_ID> --aws-secret-access-key <AWS_SECRET_ACCESS_KEY>"
+    echo    "         --minute-expire <MINUTE_TO_EXPIRE>"
     echo -e "\033[1;35m"
     echo    "DESCRIPTION :"
     echo    "    --help                     Help page"
@@ -18,6 +19,7 @@ function displayUsage()
     echo    "    --file-path                File path (require)"
     echo    "    --aws-access-key-id        AWS Access Key ID (optional, defaults to \$AWS_ACCESS_KEY_ID)"
     echo    "    --aws-secret-access-key    AWS Secret Access Key (optional, defaults to \$AWS_SECRET_ACCESS_KEY)"
+    echo    "    --minute-expire            Minutes to expire signed URL (optional, defaults to ${minuteExpire})"
     echo -e "\033[1;36m"
     echo    "EXAMPLES :"
     echo    "    ./${scriptName} --help"
@@ -25,6 +27,7 @@ function displayUsage()
     echo    "    ./${scriptName}"
     echo    "        --region 'us-west-1' --bucket 'my_bucket_name' --file-path 'my_path/my_file.txt'"
     echo    "        --aws-access-key-id '5KI6IA4AXMA39FV7O4E0' --aws-secret-access-key '5N2j9gJlw9azyLEVpbIOn/tZ2u3sVjjHM03qJfIA'"
+    echo    "        --minute-expire 30"
     echo -e "\033[0m"
 
     exit ${1}
@@ -37,9 +40,10 @@ function generateSignURL()
     local filePath="${3}"
     local awsAccessKeyID="${4}"
     local awsSecretAccessKey="${5}"
+    local minuteExpire="${6}"
 
     local endPoint="$("$(isEmptyString ${region})" = 'true' && echo 's3.amazonaws.com' || echo "s3-${region}.amazonaws.com")"
-    local expire="$(($(date +%s) + 900))"
+    local expire="$(($(date +%s) + ${minuteExpire} * 60))"
     local signature="$(echo -en "GET\n\n\n${expire}\n/${bucket}/${filePath}" | openssl dgst -sha1 -binary -hmac "${awsSecretAccessKey}" | openssl base64)"
     local query="AWSAccessKeyId=$(encodeURL "${awsAccessKeyID}")&Expires=${expire}&Signature=$(encodeURL "${signature}")"
 
@@ -53,9 +57,10 @@ function main()
 
     local optCount=${#}
 
+    local region="${AWS_DEFAULT_REGION}"
     local awsAccessKeyID="${AWS_ACCESS_KEY_ID}"
     local awsSecretAccessKey="${AWS_SECRET_ACCESS_KEY}"
-    local region="${AWS_DEFAULT_REGION}"
+    minuteExpire=15
 
     while [[ ${#} -gt 0 ]]
     do
@@ -86,7 +91,7 @@ function main()
 
                 if [[ ${#} -gt 0 ]]
                 then
-                    local filePath="$(trimString "${1}")"
+                    local filePath="$(formatPath "$(trimString "${1}")" | sed -e 's/^\///g')"
                 fi
 
                 ;;
@@ -108,6 +113,15 @@ function main()
                 fi
 
                 ;;
+            --minute-expire)
+                shift
+
+                if [[ ${#} -gt 0 ]]
+                then
+                    local minuteExpire="$(trimString "${1}")"
+                fi
+
+                ;;
             *)
                 shift
                 ;;
@@ -126,7 +140,13 @@ function main()
         displayUsage 0
     fi
 
-    generateSignURL "${region}" "${bucket}" "${filePath}" "${awsAccessKeyID}" "${awsSecretAccessKey}"
+    if [[ ${minuteExpire} < 1 ]]
+    then
+        error '\nERROR: minuteExpire must be greater than 0!\n'
+        exit 1
+    fi
+
+    generateSignURL "${region}" "${bucket}" "${filePath}" "${awsAccessKeyID}" "${awsSecretAccessKey}" "${minuteExpire}"
 }
 
 main "$@"

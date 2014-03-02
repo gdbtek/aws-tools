@@ -41,3 +41,27 @@ function encodeURL()
         esac
     done
 }
+
+function formatPath
+{
+    local string="${1}"
+
+    while [[ "$(echo "${string}" | grep -F '//')" != '' ]]
+    do
+        string="$(echo "${string}" | sed -e 's/\/\/*/\//g')"
+    done
+
+    echo "${string}" | sed -e 's/\/$//g'
+}
+
+function containElementInArray()
+{
+    local element=''
+
+    for element in "${@:2}"
+    do
+        [[ "${element}" == "${1}" ]] && echo 'true' && return 0
+    done
+
+    echo 'false' && return 1
+}
