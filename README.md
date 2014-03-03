@@ -25,7 +25,9 @@ EXAMPLES :
     ./sign_s3_url.bash --help
     ./sign_s3_url.bash --bucket 'my_bucket_name' --file-path 'my_path/my_file.txt'
     ./sign_s3_url.bash
-        --region 'us-west-1' --bucket 'my_bucket_name' --file-path 'my_path/my_file.txt'
+        --region 'us-west-1'
+        --bucket 'my_bucket_name'
+        --file-path 'my_path/my_file.txt'
         --aws-access-key-id '5KI6IA4AXMA39FV7O4E0'
         --aws-secret-access-key '5N2j9gJlw9azyLEVpbIOn/tZ2u3sVjjHM03qJfIA'
         --minute-expire 30
