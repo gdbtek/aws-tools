@@ -12,7 +12,9 @@ SYNOPSIS :
 DESCRIPTION :
     --help                     Help page
     --region                   Region (optional, defaults to $AWS_DEFAULT_REGION)
-                               ap-northeast-1 ap-southeast-1 ap-southeast-2 eu-west-1 sa-east-1 us-east-1 us-west-1 us-west-2
+                               Valid regions: ap-northeast-1 ap-southeast-1 ap-southeast-2
+                                              eu-west-1 sa-east-1
+                                              us-east-1 us-west-1 us-west-2
     --bucket                   Bucket name (require)
     --file-path                File path (require)
     --aws-access-key-id        AWS Access Key ID (optional, defaults to $AWS_ACCESS_KEY_ID)

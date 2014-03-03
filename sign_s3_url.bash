@@ -15,7 +15,7 @@ function displayUsage()
     echo    "DESCRIPTION :"
     echo    "    --help                     Help page"
     echo    "    --region                   Region (optional, defaults to \$AWS_DEFAULT_REGION)"
-    echo    "                               $(getAllowRegions)"
+    echo    "                               Valid regions: $(getAllowRegions)"
     echo    "    --bucket                   Bucket name (require)"
     echo    "    --file-path                File path (require)"
     echo    "    --aws-access-key-id        AWS Access Key ID (optional, defaults to \$AWS_ACCESS_KEY_ID)"
