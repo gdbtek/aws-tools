@@ -15,6 +15,7 @@ function displayUsage()
     echo    "DESCRIPTION :"
     echo    "    --help                     Help page"
     echo    "    --region                   Region (optional, defaults to \$AWS_DEFAULT_REGION)"
+    echo    "                               $(getAllowRegions)"
     echo    "    --bucket                   Bucket name (require)"
     echo    "    --file-path                File path (require)"
     echo    "    --aws-access-key-id        AWS Access Key ID (optional, defaults to \$AWS_ACCESS_KEY_ID)"
@@ -136,7 +137,7 @@ function main()
     then
         if [[ ${optCount} -gt 0 ]]
         then
-            error '\nERROR: bucket, filePath, awsAccessKeyID or awsSecretAccessKey not found!'
+            error '\nERROR: bucket, filePath, awsAccessKeyID or awsSecretAccessKey argument not found!'
             displayUsage 1
         fi
 
@@ -146,6 +147,12 @@ function main()
     if [[ ${minuteExpire} < 1 ]]
     then
         error '\nERROR: minuteExpire must be greater than 0!\n'
+        exit 1
+    fi
+
+    if [[ "$(isValidRegion "${region}")" = 'false' ]]
+    then
+        error "\nERROR: region must be valid string of: $(getAllowRegions)!\n"
         exit 1
     fi
 

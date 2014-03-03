@@ -54,6 +54,19 @@ function formatPath
     echo "${string}" | sed -e 's/\/$//g'
 }
 
+function getAllowRegions()
+{
+    echo 'ap-northeast-1 ap-southeast-1 ap-southeast-2 eu-west-1 sa-east-1 us-east-1 us-west-1 us-west-2'
+}
+
+function isValidRegion()
+{
+    local region="${1}"
+    local regions=($(getAllowRegions))
+
+    echo "$(containElementInArray "${region}" "${regions[@]}")"
+}
+
 function containElementInArray()
 {
     local element=''
