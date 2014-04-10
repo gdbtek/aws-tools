@@ -73,7 +73,7 @@ function containElementInArray()
 
     for element in "${@:2}"
     do
-        [[ "${element}" == "${1}" ]] && echo 'true' && return 0
+        [[ "${element}" = "${1}" ]] && echo 'true' && return 0
     done
 
     echo 'false' && return 1
