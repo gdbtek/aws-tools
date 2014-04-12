@@ -8,9 +8,17 @@ function displayUsage()
     echo    "SYNOPSIS :"
     echo    "    ${scriptName}"
     echo    "         --help"
-    echo    "         --region <REGION> --bucket <BUCKET_NAME> --file <FILE_PATH>"
-    echo    "         --aws-access-key-id <AWS_ACCESS_KEY_ID> --aws-secret-access-key <AWS_SECRET_ACCESS_KEY>"
+    echo    "         --region <REGION>"
+    echo    "         --bucket <BUCKET_NAME>"
+    echo    "         --file <FILE_PATH>"
+    echo    "         --aws-access-key-id <AWS_ACCESS_KEY_ID>"
+    echo    "         --aws-secret-access-key <AWS_SECRET_ACCESS_KEY>"
+    echo    "         --method <HTTP_REQUEST_METHOD>"
     echo    "         --minute-expire <MINUTE_TO_EXPIRE>"
+    echo -e "\033[1;32m"
+    echo    "DESCRIPTION :"
+    echo    "    If you have a private/public S3 bucket and would like to share the downloadable links to anyone,"
+    echo    "    this tool will help to generate signed S3 URLs"
     echo -e "\033[1;35m"
     echo    "DESCRIPTION :"
     echo    "    --help                     Help page"
@@ -20,17 +28,21 @@ function displayUsage()
     echo    "    --file-path                File path (require)"
     echo    "    --aws-access-key-id        AWS Access Key ID (optional, defaults to \$AWS_ACCESS_KEY_ID)"
     echo    "    --aws-secret-access-key    AWS Secret Access Key (optional, defaults to \$AWS_SECRET_ACCESS_KEY)"
-    echo    "    --minute-expire            Minutes to expire signed URL (optional, defaults to ${minuteExpire} minutes)"
+    echo    "    --method                   HTTP request method (optional, defaults to '${method}' method)"
+    echo    "    --minute-expire            Minutes to expire signed URL (optional, defaults to '${minuteExpire}' minutes)"
     echo -e "\033[1;36m"
     echo    "EXAMPLES :"
     echo    "    ./${scriptName} --help"
-    echo    "    ./${scriptName} --bucket 'my_bucket_name' --file-path 'my_path/my_file.txt'"
+    echo    "    ./${scriptName}"
+    echo    "        --bucket 'my_bucket_name'"
+    echo    "        --file-path 'my_path/my_file.txt'"
     echo    "    ./${scriptName}"
     echo    "        --region 'us-west-1'"
     echo    "        --bucket 'my_bucket_name'"
     echo    "        --file-path 'my_path/my_file.txt'"
     echo    "        --aws-access-key-id '5KI6IA4AXMA39FV7O4E0'"
     echo    "        --aws-secret-access-key '5N2j9gJlw9azyLEVpbIOn/tZ2u3sVjjHM03qJfIA'"
+    echo    "        --method 'PUT'"
     echo    "        --minute-expire 30"
     echo -e "\033[0m"
 
@@ -44,11 +56,12 @@ function generateSignURL()
     local filePath="${3}"
     local awsAccessKeyID="${4}"
     local awsSecretAccessKey="${5}"
-    local minuteExpire="${6}"
+    local method="${6}"
+    local minuteExpire="${7}"
 
     local endPoint="$("$(isEmptyString ${region})" = 'true' && echo 's3.amazonaws.com' || echo "s3-${region}.amazonaws.com")"
     local expire="$(($(date +%s) + ${minuteExpire} * 60))"
-    local signature="$(echo -en "GET\n\n\n${expire}\n/${bucket}/${filePath}" | \
+    local signature="$(echo -en "${method}\n\n\n${expire}\n/${bucket}/${filePath}" | \
                        openssl dgst -sha1 -binary -hmac "${awsSecretAccessKey}" | \
                        openssl base64)"
     local query="AWSAccessKeyId=$(encodeURL "${awsAccessKeyID}")&Expires=${expire}&Signature=$(encodeURL "${signature}")"
@@ -66,6 +79,7 @@ function main()
     local region="${AWS_DEFAULT_REGION}"
     local awsAccessKeyID="${AWS_ACCESS_KEY_ID}"
     local awsSecretAccessKey="${AWS_SECRET_ACCESS_KEY}"
+    method='GET'
     minuteExpire=15
 
     while [[ ${#} -gt 0 ]]
@@ -119,6 +133,15 @@ function main()
                 fi
 
                 ;;
+            --method)
+                shift
+
+                if [[ ${#} -gt 0 ]]
+                then
+                    local method="$(trimString "${1}")"
+                fi
+
+                ;;
             --minute-expire)
                 shift
 
@@ -156,7 +179,7 @@ function main()
         fatal "\nERROR: region must be valid string of: $(getAllowRegions)!\n"
     fi
 
-    generateSignURL "${region}" "${bucket}" "${filePath}" "${awsAccessKeyID}" "${awsSecretAccessKey}" "${minuteExpire}"
+    generateSignURL "${region}" "${bucket}" "${filePath}" "${awsAccessKeyID}" "${awsSecretAccessKey}" "${method}" "${minuteExpire}"
 }
 
 main "$@"
