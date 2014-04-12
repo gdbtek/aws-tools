@@ -15,7 +15,7 @@ SYNOPSIS :
          --method <HTTP_REQUEST_METHOD>
          --minute-expire <MINUTE_TO_EXPIRE>
 
-DESCRIPTION :
+USE CASES :
     If you have a private/public S3 bucket and would like to share the downloadable links to anyone,
     this tool will help to generate signed S3 URLs
 

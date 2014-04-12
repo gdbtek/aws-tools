@@ -16,7 +16,7 @@ function displayUsage()
     echo    "         --method <HTTP_REQUEST_METHOD>"
     echo    "         --minute-expire <MINUTE_TO_EXPIRE>"
     echo -e "\033[1;32m"
-    echo    "DESCRIPTION :"
+    echo    "USE CASES :"
     echo    "    If you have a private/public S3 bucket and would like to share the downloadable links to anyone,"
     echo    "    this tool will help to generate signed S3 URLs"
     echo -e "\033[1;35m"
