@@ -148,14 +148,12 @@ function main()
 
     if [[ ${minuteExpire} < 1 ]]
     then
-        error '\nERROR: minuteExpire must be greater than 0!\n'
-        exit 1
+        fatal '\nERROR: minuteExpire must be greater than 0!\n'
     fi
 
     if [[ "$(isValidRegion "${region}")" = 'false' ]]
     then
-        error "\nERROR: region must be valid string of: $(getAllowRegions)!\n"
-        exit 1
+        fatal "\nERROR: region must be valid string of: $(getAllowRegions)!\n"
     fi
 
     generateSignURL "${region}" "${bucket}" "${filePath}" "${awsAccessKeyID}" "${awsSecretAccessKey}" "${minuteExpire}"
