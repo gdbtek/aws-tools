@@ -179,6 +179,11 @@ function main()
         fatal "\nERROR: region must be valid string of: $(getAllowRegions)!\n"
     fi
 
+    if [[ "${region}" = 'us-east-1' ]]
+    then
+        region=""
+    fi
+
     generateSignURL "${region}" "${bucket}" "${filePath}" "${awsAccessKeyID}" "${awsSecretAccessKey}" "${method}" "${minuteExpire}"
 }
 
