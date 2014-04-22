@@ -48,7 +48,7 @@ function encodeURL()
     done
 }
 
-function formatPath
+function formatPath()
 {
     local string="${1}"
 
