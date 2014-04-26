@@ -174,9 +174,14 @@ function main()
         fatal '\nERROR: minuteExpire must be greater than 0!\n'
     fi
 
-    if [[ "$(isValidRegion "${region}")" = 'false' ]]
+    if [[ "$(isEmptyString ${region})" = 'false' && "$(isValidRegion "${region}")" = 'false' ]]
     then
         fatal "\nERROR: region must be valid string of: $(getAllowRegions)!\n"
+    fi
+
+    if [[ "${region}" = 'us-east-1' ]]
+    then
+        region=""
     fi
 
     generateSignURL "${region}" "${bucket}" "${filePath}" "${awsAccessKeyID}" "${awsSecretAccessKey}" "${method}" "${minuteExpire}"
