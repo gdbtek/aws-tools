@@ -30,6 +30,8 @@ function encodeURL()
 {
     local length="${#1}"
 
+    local i=0
+
     for ((i = 0; i < length; i++))
     do
         local walker="${1:i:1}"
