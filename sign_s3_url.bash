@@ -172,12 +172,12 @@ function main()
 
     if [[ ${minuteExpire} < 1 ]]
     then
-        fatal '\nERROR: minuteExpire must be greater than 0!\n'
+        fatal '\nFATAL: minuteExpire must be greater than 0!\n'
     fi
 
     if [[ "$(isEmptyString ${region})" = 'false' && "$(isValidRegion "${region}")" = 'false' ]]
     then
-        fatal "\nERROR: region must be valid string of: $(getAllowRegions)!\n"
+        fatal "\nFATAL: region must be valid string of: $(getAllowRegions)!\n"
     fi
 
     if [[ "${region}" = 'us-east-1' ]]
