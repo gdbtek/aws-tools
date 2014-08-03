@@ -1,30 +1,41 @@
 #!/bin/bash
 
-function error()
+###################
+# ARRAY UTILITIES #
+###################
+
+function containElementInArray()
 {
-    echo -e "\033[1;31m${1}\033[0m" 1>&2
+    local element=''
+
+    for element in "${@:2}"
+    do
+        [[ "${element}" = "${1}" ]] && echo 'true' && return 0
+    done
+
+    echo 'false' && return 1
 }
 
-function fatal()
+#################
+# AWS UTILITIES #
+#################
+
+function getAllowRegions()
 {
-    error "${1}"
-    exit 1
+    echo 'ap-northeast-1 ap-southeast-1 ap-southeast-2 eu-west-1 sa-east-1 us-east-1 us-west-1 us-west-2'
 }
 
-function trimString()
+function isValidRegion()
 {
-    echo "${1}" | sed -e 's/^ *//g' -e 's/ *$//g'
+    local region="${1}"
+    local regions=($(getAllowRegions))
+
+    echo "$(containElementInArray "${region}" "${regions[@]}")"
 }
 
-function isEmptyString()
-{
-    if [[ "$(trimString ${1})" = '' ]]
-    then
-        echo 'true'
-    else
-        echo 'false'
-    fi
-}
+####################
+# STRING UTILITIES #
+####################
 
 function encodeURL()
 {
@@ -50,6 +61,17 @@ function encodeURL()
     done
 }
 
+function error()
+{
+    echo -e "\033[1;31m${1}\033[0m" 1>&2
+}
+
+function fatal()
+{
+    error "${1}"
+    exit 1
+}
+
 function formatPath()
 {
     local string="${1}"
@@ -62,27 +84,17 @@ function formatPath()
     echo "${string}" | sed -e 's/\/$//g'
 }
 
-function getAllowRegions()
+function isEmptyString()
 {
-    echo 'ap-northeast-1 ap-southeast-1 ap-southeast-2 eu-west-1 sa-east-1 us-east-1 us-west-1 us-west-2'
+    if [[ "$(trimString ${1})" = '' ]]
+    then
+        echo 'true'
+    else
+        echo 'false'
+    fi
 }
 
-function isValidRegion()
+function trimString()
 {
-    local region="${1}"
-    local regions=($(getAllowRegions))
-
-    echo "$(containElementInArray "${region}" "${regions[@]}")"
-}
-
-function containElementInArray()
-{
-    local element=''
-
-    for element in "${@:2}"
-    do
-        [[ "${element}" = "${1}" ]] && echo 'true' && return 0
-    done
-
-    echo 'false' && return 1
+    echo "${1}" | sed -e 's/^ *//g' -e 's/ *$//g'
 }
