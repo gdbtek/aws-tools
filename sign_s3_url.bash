@@ -10,7 +10,7 @@ function displayUsage()
     echo    "         --help"
     echo    "         --region <REGION>"
     echo    "         --bucket <BUCKET_NAME>"
-    echo    "         --file <FILE_PATH>"
+    echo    "         --file-path <FILE_PATH>"
     echo    "         --aws-access-key-id <AWS_ACCESS_KEY_ID>"
     echo    "         --aws-secret-access-key <AWS_SECRET_ACCESS_KEY>"
     echo    "         --method <HTTP_REQUEST_METHOD>"
