@@ -59,14 +59,16 @@ function generateSignURL()
     local method="${6}"
     local minuteExpire="${7}"
 
+    local urlEncodedFilePath=$(encodeURL "${filePath}")
+
     local endPoint="$("$(isEmptyString ${region})" = 'true' && echo 's3.amazonaws.com' || echo "s3-${region}.amazonaws.com")"
     local expire="$(($(date +%s) + ${minuteExpire} * 60))"
-    local signature="$(echo -en "${method}\n\n\n${expire}\n/${bucket}/${filePath}" | \
+    local signature="$(echo -en "${method}\n\n\n${expire}\n/${bucket}/${urlEncodedFilePath}" | \
                        openssl dgst -sha1 -binary -hmac "${awsSecretAccessKey}" | \
                        openssl base64)"
     local query="AWSAccessKeyId=$(encodeURL "${awsAccessKeyID}")&Expires=${expire}&Signature=$(encodeURL "${signature}")"
 
-    echo "http://${endPoint}/${bucket}/${filePath}?${query}"
+    echo "http://${endPoint}/${bucket}/${urlEncodedFilePath}?${query}"
 }
 
 function main()
