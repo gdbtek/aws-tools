@@ -39,26 +39,18 @@ function isValidRegion()
 
 function encodeURL()
 {
-    local length="${#1}"
-
-    local i=0
-
-    for ((i = 0; i < length; i++))
-    do
-        local walker="${1:i:1}"
-
-        case "${walker}" in
-            [a-zA-Z0-9.~_-])
-                printf "${walker}"
-                ;;
-            ' ')
-                printf +
-                ;;
-            *)
-                printf '%%%X' "'${walker}"
-                ;;
-        esac
-    done
+    local data
+    if [[ $# != 1 ]]; then
+        echo "Usage: $0 string-to-urlencode"
+        return 1
+    fi
+    data="$(curl -s -o /dev/null -w %{url_effective} --get --data-urlencode "$1" "")"
+    if [[ $? != 3 ]]; then
+        echo "Unexpected error" 1>&2
+        return 2
+    fi
+    echo "${data##/?}"
+    return 0
 }
 
 function error()
