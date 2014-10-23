@@ -78,8 +78,8 @@ function main()
     local optCount=${#}
 
     local region="${AWS_DEFAULT_REGION}"
-    local awsAccessKeyID="${AWS_ACCESS_KEY_ID}"
-    local awsSecretAccessKey="${AWS_SECRET_ACCESS_KEY}"
+    local awsAccessKeyID="${AWS_ACCESS_KEY_ID:-${AWS_ACCESS_KEY}}"
+    local awsSecretAccessKey="${AWS_SECRET_ACCESS_KEY:-${AWS_SECRET_KEY}}"
     method='GET'
     minuteExpire=15
 
