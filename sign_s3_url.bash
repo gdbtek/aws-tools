@@ -66,7 +66,7 @@ function generateSignURL()
                        openssl base64)"
     local query="AWSAccessKeyId=$(encodeURL "${awsAccessKeyID}")&Expires=${expire}&Signature=$(encodeURL "${signature}")"
 
-    echo "http://${endPoint}/${bucket}/${filePath}?${query}"
+    echo "https://${endPoint}/${bucket}/${filePath}?${query}"
 }
 
 function main()
