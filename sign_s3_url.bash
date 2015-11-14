@@ -7,6 +7,7 @@ function displayUsage()
     echo -e "\033[1;33m"
     echo    "SYNOPSIS :"
     echo    "    ${scriptName}"
+    echo    "         [<S3_RAW_URL>]"
     echo    "         --help"
     echo    "         --region <REGION>"
     echo    "         --bucket <BUCKET_NAME>"
@@ -24,8 +25,8 @@ function displayUsage()
     echo    "    --help                     Help page"
     echo    "    --region                   Region (optional, defaults to \$AWS_DEFAULT_REGION)"
     echo    "                               Valid regions: $(getAllowRegions)"
-    echo    "    --bucket                   Bucket name (require)"
-    echo    "    --file-path                File path (require)"
+    echo    "    --bucket                   Bucket name (required if no raw url was passed)"
+    echo    "    --file-path                File path (required if no raw url was passed)"
     echo    "    --aws-access-key-id        AWS Access Key ID (optional, defaults to \$AWS_ACCESS_KEY_ID)"
     echo    "    --aws-secret-access-key    AWS Secret Access Key (optional, defaults to \$AWS_SECRET_ACCESS_KEY)"
     echo    "    --method                   HTTP request method (optional, defaults to '${method}' method)"
@@ -33,6 +34,7 @@ function displayUsage()
     echo -e "\033[1;36m"
     echo    "EXAMPLES :"
     echo    "    ./${scriptName} --help"
+    echo    "    ./${scriptName} s3://my_bucket_name/my_path/my_file.txt"
     echo    "    ./${scriptName}"
     echo    "        --bucket 'my_bucket_name'"
     echo    "        --file-path 'my_path/my_file.txt'"
@@ -78,8 +80,8 @@ function main()
     local optCount=${#}
 
     local region="${AWS_DEFAULT_REGION}"
-    local awsAccessKeyID="${AWS_ACCESS_KEY_ID}"
-    local awsSecretAccessKey="${AWS_SECRET_ACCESS_KEY}"
+    local awsAccessKeyID="${AWS_ACCESS_KEY_ID:-${AWS_ACCESS_KEY}}"
+    local awsSecretAccessKey="${AWS_SECRET_ACCESS_KEY:-${AWS_SECRET_KEY}}"
     method='GET'
     minuteExpire=15
 
@@ -95,6 +97,7 @@ function main()
                 if [[ ${#} -gt 0 ]]
                 then
                     local region="$(trimString "${1}")"
+                    shift
                 fi
 
                 ;;
@@ -104,6 +107,7 @@ function main()
                 if [[ ${#} -gt 0 ]]
                 then
                     local bucket="$(trimString "${1}")"
+                    shift
                 fi
 
                 ;;
@@ -113,6 +117,7 @@ function main()
                 if [[ ${#} -gt 0 ]]
                 then
                     local filePath="$(formatPath "$(trimString "${1}")" | sed -e 's/^\///g')"
+                    shift
                 fi
 
                 ;;
@@ -122,6 +127,7 @@ function main()
                 if [[ ${#} -gt 0 ]]
                 then
                     local awsAccessKeyID="$(trimString "${1}")"
+                    shift
                 fi
 
                 ;;
@@ -131,6 +137,7 @@ function main()
                 if [[ ${#} -gt 0 ]]
                 then
                     local awsSecretAccessKey="$(trimString "${1}")"
+                    shift
                 fi
 
                 ;;
@@ -140,6 +147,7 @@ function main()
                 if [[ ${#} -gt 0 ]]
                 then
                     local method="$(trimString "${1}")"
+                    shift
                 fi
 
                 ;;
@@ -149,25 +157,53 @@ function main()
                 if [[ ${#} -gt 0 ]]
                 then
                     local minuteExpire="$(trimString "${1}")"
+                    shift
                 fi
 
                 ;;
             *)
+                local url="$(trimString "${1}")"
                 shift
                 ;;
         esac
     done
 
-    if [[ "$(isEmptyString ${bucket})" = 'true' || "$(isEmptyString ${filePath})" = 'true' ||
-          "$(isEmptyString ${awsAccessKeyID})" = 'true' || "$(isEmptyString ${awsSecretAccessKey})" = 'true' ]]
+    if [[ "$(isEmptyString ${awsAccessKeyID})" = 'true' || "$(isEmptyString ${awsSecretAccessKey})" = 'true' ]]
     then
         if [[ ${optCount} -gt 0 ]]
         then
-            error '\nERROR: bucket, filePath, awsAccessKeyID or awsSecretAccessKey argument not found!'
+            error '\nERROR: aws credentials are missing!\n'
             displayUsage 1
         fi
 
         displayUsage 0
+    fi
+
+    if [[ "$(isEmptyString ${url})" = 'true' &&
+          ("$(isEmptyString ${bucket})" = 'true' || "$(isEmptyString ${filePath})" = 'true') ]]
+    then
+        if [[ ${optCount} -gt 0 ]]
+        then
+            error '\nERROR: object url (or bucket + path) argument is missing!\n'
+            displayUsage 1
+        fi
+
+        displayUsage 0
+    fi
+
+    if [[ "$(isEmptyString ${bucket})" = 'true' || "$(isEmptyString ${filePath})" = 'true' ]]
+    then
+        local filePath="${url#s3://*/}"
+        local no_protocol="${url#s3://}"
+        local bucket="${no_protocol%%/*}"
+
+        if [[ "${filePath})" = "${url}" || "$(isEmptyString ${bucket})" = 'true' ]]
+        then
+            echo ${bucket}
+            echo ${filePath}
+            error '\nERROR: raw s3 url argument is invalid!\n'
+            displayUsage 1
+        fi
     fi
 
     if [[ ${minuteExpire} < 1 ]]
