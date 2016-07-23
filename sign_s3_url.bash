@@ -46,14 +46,14 @@ function displayUsage()
     echo    "        --minute-expire '30'"
     echo -e "\033[0m"
 
-    exit ${1}
+    exit "${1}"
 }
 
 function generateSignURL()
 {
     local -r awsAccessKeyID="${1}"
     local -r awsSecretAccessKey="${2}"
-    local -r region="${3}"
+    local    region="${3}"
     local -r bucket="${4}"
     local -r filePath="${5}"
     local -r method="${6}"
@@ -65,7 +65,7 @@ function generateSignURL()
     fi
 
     local -r endPoint="$("$(isEmptyString "${region}")" = 'true' && echo 's3.amazonaws.com' || echo "s3-${region}.amazonaws.com")"
-    local -r expire="$(($(date +'%s') + ${minuteExpire} * 60))"
+    local -r expire="$(($(date +'%s') + minuteExpire * 60))"
     local -r signature="$(
         echo -en "${method}\n\n\n${expire}\n/${bucket}/${filePath}" |
         openssl dgst -sha1 -binary -hmac "${awsSecretAccessKey}" |
@@ -82,7 +82,9 @@ function main()
 
     local -r optCount="${#}"
 
+    # shellcheck disable=SC1090
     source "${appFolderPath}/libraries/aws.bash"
+    # shellcheck disable=SC1090
     source "${appFolderPath}/libraries/util.bash"
 
     # Set Default Values
@@ -109,6 +111,7 @@ function main()
                 if [[ "${#}" -gt '0' ]]
                 then
                     awsAccessKeyID="$(trimString "${1}")"
+                    echo
                 fi
 
                 ;;
@@ -192,9 +195,9 @@ function main()
         displayUsage 1
     fi
 
-    if [[ "$(isEmptyString ${REGION})" = 'false' && "$(isValidRegion "${REGION}")" = 'false' ]]
+    if [[ "$(isEmptyString "${REGION}")" = 'true' || "$(isValidRegion "${REGION}")" = 'false' ]]
     then
-        fatal "\nFATAL: region must be valid string of $(getAllowRegions)\n"
+        fatal "\nFATAL: region must be valid string of $(getAllowedRegions)\n"
     fi
 
     if [[ "${MINUTE_EXPIRE}" -lt '1' ]]
