@@ -11,10 +11,10 @@ function displayUsage()
     echo    "         --aws-access-key-id <AWS_ACCESS_KEY_ID>"
     echo    "         --aws-secret-access-key <AWS_SECRET_ACCESS_KEY>"
     echo    "         --region <REGION>"
-    echo    "         --bucket <BUCKET_NAME>"
+    echo    "         --bucket <BUCKET>"
     echo    "         --file-path <FILE_PATH>"
-    echo    "         --method <HTTP_REQUEST_METHOD>"
-    echo    "         --minute-expire <MINUTE_TO_EXPIRE>"
+    echo    "         --method <METHOD>"
+    echo    "         --minute-expire <MINUTE_EXPIRE>"
     echo -e "\033[1;32m"
     echo    "USE CASES :"
     echo    "    If you have a private/public S3 bucket and would like to share the downloadable links to anyone,"
@@ -25,11 +25,11 @@ function displayUsage()
     echo    "    --aws-access-key-id        AWS Access Key ID (optional, defaults to \${AWS_ACCESS_KEY_ID})"
     echo    "    --aws-secret-access-key    AWS Secret Access Key (optional, defaults to \${AWS_SECRET_ACCESS_KEY})"
     echo    "    --region                   Region (optional, defaults to \${AWS_DEFAULT_REGION})"
-    echo    "                               Valid regions: $(getAllowRegions)"
+    echo    "                               Valid regions: $(getAllowedRegions)"
     echo    "    --bucket                   Bucket name (require)"
     echo    "    --file-path                File path (require)"
-    echo    "    --method                   HTTP request method (optional, defaults to '${method}' method)"
-    echo    "    --minute-expire            Minutes to expire signed URL (optional, defaults to '${minuteExpire}' minutes)"
+    echo    "    --method                   HTTP request method (optional, defaults to '${METHOD}' METHOD)"
+    echo    "    --minute-expire            Minutes to expire signed URL (optional, defaults to '${MINUTE_EXPIRE}' minutes)"
     echo -e "\033[1;36m"
     echo    "EXAMPLES :"
     echo    "    ./${scriptName} --help"
@@ -43,7 +43,7 @@ function displayUsage()
     echo    "        --bucket 'my_bucket_name'"
     echo    "        --file-path 'my_path/my_file.txt'"
     echo    "        --method 'PUT'"
-    echo    "        --minute-expire 30"
+    echo    "        --minute-expire '30'"
     echo -e "\033[0m"
 
     exit ${1}
@@ -82,15 +82,17 @@ function main()
 
     local -r optCount="${#}"
 
-    source "${appFolderPath}/../libraries/util.bash"
+    source "${appFolderPath}/libraries/aws.bash"
+    source "${appFolderPath}/libraries/util.bash"
 
     # Set Default Values
 
     local awsAccessKeyID="${AWS_ACCESS_KEY_ID}"
     local awsSecretAccessKey="${AWS_SECRET_ACCESS_KEY}"
-    local region="${AWS_DEFAULT_REGION}"
-    local method='GET'
-    local minuteExpire='15'
+
+    REGION="${AWS_DEFAULT_REGION}"
+    METHOD='GET'
+    MINUTE_EXPIRE='15'
 
     # Parse Inputs
 
@@ -126,7 +128,7 @@ function main()
 
                 if [[ "${#}" -gt '0' ]]
                 then
-                    region="$(trimString "${1}")"
+                    REGION="$(trimString "${1}")"
                 fi
 
                 ;;
@@ -156,7 +158,7 @@ function main()
 
                 if [[ "${#}" -gt '0' ]]
                 then
-                    method="$(trimString "${1}")"
+                    METHOD="$(trimString "${1}")"
                 fi
 
                 ;;
@@ -166,7 +168,7 @@ function main()
 
                 if [[ "${#}" -gt '0' ]]
                 then
-                    minuteExpire="$(trimString "${1}")"
+                    MINUTE_EXPIRE="$(trimString "${1}")"
                 fi
 
                 ;;
@@ -190,17 +192,17 @@ function main()
         displayUsage 1
     fi
 
-    if [[ "$(isEmptyString ${region})" = 'false' && "$(isValidRegion "${region}")" = 'false' ]]
+    if [[ "$(isEmptyString ${REGION})" = 'false' && "$(isValidRegion "${REGION}")" = 'false' ]]
     then
         fatal "\nFATAL: region must be valid string of $(getAllowRegions)\n"
     fi
 
-    if [[ "${minuteExpire}" -lt '1' ]]
+    if [[ "${MINUTE_EXPIRE}" -lt '1' ]]
     then
-        fatal '\nFATAL: invalid minuteExpire\n'
+        fatal '\nFATAL: invalid MINUTE_EXPIRE\n'
     fi
 
-    generateSignURL "${awsAccessKeyID}" "${awsSecretAccessKey}" "${region}" "${bucket}" "${filePath}" "${method}" "${minuteExpire}"
+    generateSignURL "${awsAccessKeyID}" "${awsSecretAccessKey}" "${REGION}" "${bucket}" "${filePath}" "${METHOD}" "${MINUTE_EXPIRE}"
 }
 
 main "$@"
