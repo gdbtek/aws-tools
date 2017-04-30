@@ -82,9 +82,7 @@ function main()
 
     local -r optCount="${#}"
 
-    # shellcheck disable=SC1090
     source "${appFolderPath}/libraries/aws.bash"
-    # shellcheck disable=SC1090
     source "${appFolderPath}/libraries/util.bash"
 
     # Set Default Values
