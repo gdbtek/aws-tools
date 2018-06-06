@@ -97,11 +97,11 @@ function convertISO8601ToSeconds()
     if [[ "$(isMacOperatingSystem)" = 'true' ]]
     then
         date -j -u -f '%FT%T' "$(awk -F '.' '{ print $1 }' <<< "${time}" | tr -d 'Z')" +'%s'
-    elif [[ "$(isCentOSDistributor)" = 'true' || "$(isRedHatDistributor)" = 'true' || "$(isUbuntuDistributor)" = 'true' ]]
+    elif [[ "$(isAmazonLinuxDistributor)" = 'true' || "$(isCentOSDistributor)" = 'true' || "$(isRedHatDistributor)" = 'true' || "$(isUbuntuDistributor)" = 'true' ]]
     then
         date -d "${time}" +'%s'
     else
-        fatal '\nFATAL : only support CentOS, Mac, RedHat, Ubuntu OS'
+        fatal '\nFATAL : only support Amazon-Linux, CentOS, Mac, RedHat, or Ubuntu OS'
     fi
 }
 
@@ -372,7 +372,7 @@ function symlinkLocalBin()
         else
             fatal "\nFATAL : '${sourceBinFileOrFolder}' is not directory or file"
         fi
-    elif [[ "$(isCentOSDistributor)" = 'true' || "$(isRedHatDistributor)" = 'true' || "$(isUbuntuDistributor)" = 'true' ]]
+    elif [[ "$(isAmazonLinuxDistributor)" = 'true' || "$(isCentOSDistributor)" = 'true' || "$(isRedHatDistributor)" = 'true' || "$(isUbuntuDistributor)" = 'true' ]]
     then
         mkdir -p '/usr/local/bin'
 
@@ -390,7 +390,7 @@ function symlinkLocalBin()
             fatal "\nFATAL : '${sourceBinFileOrFolder}' is not directory or file"
         fi
     else
-        fatal '\nFATAL : only support CentOS, Mac, RedHat, Ubuntu OS'
+        fatal '\nFATAL : only support Amazon-Linux, CentOS, Mac, RedHat, or Ubuntu OS'
     fi
 }
 
@@ -603,11 +603,11 @@ function installBuildEssential()
     if [[ "$(isUbuntuDistributor)" = 'true' ]]
     then
         installPackages 'build-essential'
-    elif [[ "$(isCentOSDistributor)" = 'true' || "$(isRedHatDistributor)" = 'true' ]]
+    elif [[ "$(isAmazonLinuxDistributor)" = 'true' || "$(isCentOSDistributor)" = 'true' || "$(isRedHatDistributor)" = 'true' ]]
     then
         installPackages 'gcc-c++' 'kernel-devel' 'make'
     else
-        fatal '\nFATAL : only support CentOS, RedHat or Ubuntu OS'
+        fatal '\nFATAL : only support Amazon-Linux, CentOS, RedHat, or Ubuntu OS'
     fi
 }
 
@@ -627,11 +627,11 @@ function installCleanUp()
         DEBIAN_FRONTEND='noninteractive' apt-get --fix-missing -y -o Dpkg::Options::='--force-confdef' -o Dpkg::Options::='--force-confold' autoremove
         DEBIAN_FRONTEND='noninteractive' apt-get --fix-missing -y -o Dpkg::Options::='--force-confdef' -o Dpkg::Options::='--force-confold' clean
         DEBIAN_FRONTEND='noninteractive' apt-get --fix-missing -y -o Dpkg::Options::='--force-confdef' -o Dpkg::Options::='--force-confold' autoclean
-    elif [[ "$(isCentOSDistributor)" = 'true' || "$(isRedHatDistributor)" = 'true' ]]
+    elif [[ "$(isAmazonLinuxDistributor)" = 'true' || "$(isCentOSDistributor)" = 'true' || "$(isRedHatDistributor)" = 'true' ]]
     then
         yum clean all
     else
-        fatal '\nFATAL : only support CentOS, RedHat or Ubuntu OS'
+        fatal '\nFATAL : only support Amazon-Linux, CentOS, RedHat, or Ubuntu OS'
     fi
 }
 
@@ -686,14 +686,14 @@ function installPackage()
                 (DEBIAN_FRONTEND='noninteractive' apt-get install --fix-missing --yes -f -y && DEBIAN_FRONTEND='noninteractive' apt-get install "${aptPackage}" --fix-missing -y)
             fi
         fi
-    elif [[ "$(isCentOSDistributor)" = 'true' || "$(isRedHatDistributor)" = 'true' ]]
+    elif [[ "$(isAmazonLinuxDistributor)" = 'true' || "$(isCentOSDistributor)" = 'true' || "$(isRedHatDistributor)" = 'true' ]]
     then
         if [[ "$(isEmptyString "${rpmPackage}")" = 'false' ]]
         then
             yum install -y "${rpmPackage}"
         fi
     else
-        fatal '\nFATAL : only support CentOS, RedHat or Ubuntu OS'
+        fatal '\nFATAL : only support Amazon-Linux, CentOS, RedHat, or Ubuntu OS'
     fi
 }
 
@@ -713,11 +713,11 @@ function installPackages()
         if [[ "$(isUbuntuDistributor)" = 'true' ]]
         then
             installPackage "${package}"
-        elif [[ "$(isCentOSDistributor)" = 'true' || "$(isRedHatDistributor)" = 'true' ]]
+        elif [[ "$(isAmazonLinuxDistributor)" = 'true' || "$(isCentOSDistributor)" = 'true' || "$(isRedHatDistributor)" = 'true' ]]
         then
             installPackage '' "${package}"
         else
-            fatal '\nFATAL : only support CentOS, RedHat or Ubuntu OS'
+            fatal '\nFATAL : only support Amazon-Linux, CentOS, RedHat, or Ubuntu OS'
         fi
     done
 }
@@ -834,7 +834,7 @@ function runUpgrade()
 
         info '\napt-get autoclean'
         DEBIAN_FRONTEND='noninteractive' apt-get --fix-missing -y -o Dpkg::Options::='--force-confdef' -o Dpkg::Options::='--force-confold' autoclean
-    elif [[ "$(isCentOSDistributor)" = 'true' || "$(isRedHatDistributor)" = 'true' ]]
+    elif [[ "$(isAmazonLinuxDistributor)" = 'true' || "$(isCentOSDistributor)" = 'true' || "$(isRedHatDistributor)" = 'true' ]]
     then
         yum -y --security update
         yum -y update --nogpgcheck
@@ -1393,9 +1393,9 @@ function checkRequireRootUser()
 
 function checkRequireLinuxSystem()
 {
-    if [[ "$(isCentOSDistributor)" = 'false' && "$(isRedHatDistributor)" = 'false' && "$(isUbuntuDistributor)" = 'false' ]]
+    if [[ "$(isAmazonLinuxDistributor)" = 'false' && "$(isCentOSDistributor)" = 'false' && "$(isRedHatDistributor)" = 'false' && "$(isUbuntuDistributor)" = 'false' ]]
     then
-        fatal '\nFATAL : only support CentOS, RedHat or Ubuntu OS'
+        fatal '\nFATAL : only support Amazon-Linux, CentOS, RedHat, or Ubuntu OS'
     fi
 
     if [[ "$(is64BitSystem)" = 'false' ]]
@@ -1772,6 +1772,11 @@ function is64BitSystem()
     isMachineHardware 'x86_64'
 }
 
+function isAmazonLinuxDistributor()
+{
+    isDistributor 'amzn'
+}
+
 function isCentOSDistributor()
 {
     isDistributor 'centos'
@@ -1835,7 +1840,7 @@ function isPortOpen()
 
     checkNonEmptyString "${port}" 'undefined port'
 
-    if [[ "$(isRedHatDistributor)" = 'true' || "$(isUbuntuDistributor)" = 'true' ]]
+    if [[ "$(isAmazonLinuxDistributor)" = 'true' || "$(isRedHatDistributor)" = 'true' || "$(isUbuntuDistributor)" = 'true' ]]
     then
         local -r process="$(netstat -l -n -t -u | grep -E ":${port}\s+" | head -1)"
     elif [[ "$(isCentOSDistributor)" = 'true' || "$(isMacOperatingSystem)" = 'true' ]]
@@ -1847,7 +1852,7 @@ function isPortOpen()
 
         local -r process="$(lsof -i -n -P | grep -E -i ":${port}\s+\(LISTEN\)$" | head -1)"
     else
-        fatal '\nFATAL : operating system not supported'
+        fatal '\nFATAL : only support Amazon-Linux, CentOS, Mac, RedHat, or Ubuntu OS'
     fi
 
     if [[ "$(isEmptyString "${process}")" = 'true' ]]
@@ -1920,12 +1925,19 @@ function startService()
 
     checkNonEmptyString "${serviceName}" 'undefined service name'
 
-    header "STARTING SYSTEMD SERVICE ${serviceName}"
+    if [[ "$(existCommand 'systemctl')" = 'true' ]]
+    then
+        header "STARTING SYSTEMD SERVICE ${serviceName}"
 
-    systemctl daemon-reload
-    systemctl start "${serviceName}"
-    systemctl status "${serviceName}" --full --no-pager
-    systemctl enable "${serviceName}"
+        systemctl daemon-reload
+        systemctl start "${serviceName}"
+        systemctl status "${serviceName}" --full --no-pager
+        systemctl enable "${serviceName}"
+    else
+        header "STARTING SERVICE ${serviceName}"
+
+        service "${serviceName}" start
+    fi
 }
 
 function stopService()
@@ -1934,8 +1946,15 @@ function stopService()
 
     checkNonEmptyString "${serviceName}" 'undefined service name'
 
-    header "STOPPING SYSTEMD SERVICE ${serviceName}"
+    if [[ "$(existCommand 'systemctl')" = 'true' ]]
+    then
+        header "STOPPING SYSTEMD SERVICE ${serviceName}"
 
-    systemctl daemon-reload
-    systemctl stop "${serviceName}"
+        systemctl daemon-reload
+        systemctl stop "${serviceName}"
+    else
+        header "STOPPING SERVICE ${serviceName}"
+
+        service "${serviceName}" stop
+    fi
 }
