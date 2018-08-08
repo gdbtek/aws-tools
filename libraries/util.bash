@@ -1626,6 +1626,39 @@ function existUserLogin()
     echo 'false' && return 1
 }
 
+function generateSSHPublicKeyFromPrivateKey()
+{
+    local -r userLogin="${1}"
+    local groupName="${2}"
+
+    # Set Default
+
+    if [[ "$(isEmptyString "${groupName}")" = 'true' ]]
+    then
+        groupName="${userLogin}"
+    fi
+
+    # Validate Input
+
+    checkExistUserLogin "${userLogin}"
+    checkExistGroupName "${groupName}"
+
+    local -r userHome="$(getUserHomeFolder "${userLogin}")"
+
+    checkExistFile "${userHome}/.ssh/id_rsa"
+
+    # Generate SSH Public Key
+
+    header "GENERATING SSH PUBLIC KEY FOR USER '${userLogin}' FROM PRIVATE KEY"
+
+    rm -f "${userHome}/.ssh/id_rsa.pub"
+    su -l "${userLogin}" -c "ssh-keygen -f '${userHome}/.ssh/id_rsa' -y > '${userHome}/.ssh/id_rsa.pub'"
+    chmod 600 "${userHome}/.ssh/id_rsa.pub"
+    chown "${userLogin}:${groupName}" "${userHome}/.ssh/id_rsa.pub"
+
+    cat "${userHome}/.ssh/id_rsa.pub"
+}
+
 function generateUserSSHKey()
 {
     local -r userLogin="${1}"
@@ -1887,6 +1920,14 @@ function isUserLoginInGroupName()
     fi
 
     echo 'false' && return 1
+}
+
+function redirectJDKTMPDir()
+{
+    local -r option="_JAVA_OPTIONS='-Djava.io.tmpdir=/var/tmp'"
+
+    appendToFileIfNotFound '/etc/environment' "${option}" "${option}" 'false' 'false' 'true'
+    appendToFileIfNotFound '/etc/profile' "${option}" "${option}" 'false' 'false' 'true'
 }
 
 function remountTMP()
