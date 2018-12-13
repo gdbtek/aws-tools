@@ -186,6 +186,38 @@ function appendToFileIfNotFound()
     fi
 }
 
+function checkExistFile()
+{
+    local -r file="${1}"
+    local -r errorMessage="${2}"
+
+    if [[ "${file}" = '' || ! -f "${file}" ]]
+    then
+        if [[ "$(isEmptyString "${errorMessage}")" = 'true' ]]
+        then
+            fatal "\nFATAL : file '${file}' not found"
+        fi
+
+        fatal "\nFATAL : ${errorMessage}"
+    fi
+}
+
+function checkExistFolder()
+{
+    local -r folder="${1}"
+    local -r errorMessage="${2}"
+
+    if [[ "${folder}" = '' || ! -d "${folder}" ]]
+    then
+        if [[ "$(isEmptyString "${errorMessage}")" = 'true' ]]
+        then
+            fatal "\nFATAL : folder '${folder}' not found"
+        fi
+
+        fatal "\nFATAL : ${errorMessage}"
+    fi
+}
+
 function checkValidJSONContent()
 {
     local -r content="${1}"
@@ -204,6 +236,24 @@ function checkValidJSONFile()
     then
         fatal "\nFATAL : invalid JSON file '${file}'"
     fi
+}
+
+function cleanUpSystemFolders()
+{
+    header 'CLEANING UP SYSTEM FOLDERS'
+
+    local -r folders=(
+        '/tmp'
+        '/var/tmp'
+    )
+
+    local folder=''
+
+    for folder in "${folders[@]}"
+    do
+        echo "Cleaning up folder '${folder}'"
+        emptyFolder "${folder}"
+    done
 }
 
 function copyFolderContent()
@@ -276,6 +326,57 @@ function createInitFileFromTemplate()
     createFileFromTemplate "${templateFolderPath}/${serviceName}.service.systemd" "/etc/systemd/system/${serviceName}.service" "${initConfigDataFromTemplate[@]}"
 }
 
+function deleteOldLogs()
+{
+    local logFolderPaths=("${@}")
+
+    header 'DELETING OLD LOGS'
+
+    # Default Log Folder Path
+
+    if [[ "${#logFolderPaths[@]}" -lt '1' ]]
+    then
+        logFolderPaths+=('/var/log')
+    fi
+
+    # Walk Each Log Folder Path
+
+    local i=0
+
+    for ((i = 0; i < ${#logFolderPaths[@]}; i = i + 1))
+    do
+        checkExistFolder "${logFolderPaths[i]}"
+
+        find "${logFolderPaths[i]}" \
+            -type f \
+            \( \
+                -regex '.*-[0-9]+' -o \
+                -regex '.*\.[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]\.log' -o \
+                -regex '.*\.[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]\.txt' -o \
+                -regex '.*\.[0-9]+' -o \
+                -regex '.*\.[0-9]+\.log' -o \
+                -regex '.*\.gz' -o \
+                -regex '.*\.old' -o \
+                -regex '.*\.xz' \
+            \) \
+            -delete \
+            -print
+    done
+}
+
+function emptyFolder()
+{
+    local -r folder="${1}"
+
+    checkExistFolder "${folder}"
+
+    local -r currentPath="$(pwd)"
+
+    cd "${folder}"
+    find '.' -not -name '.' -delete
+    cd "${currentPath}"
+}
+
 function getFileExtension()
 {
     local -r string="${1}"
@@ -292,6 +393,47 @@ function getFileName()
     local -r fullFileName="$(basename "${string}")"
 
     echo "${fullFileName%.*}"
+}
+
+function getTemporaryFile()
+{
+    local extension="${1}"
+
+    if [[ "$(isEmptyString "${extension}")" = 'false' && "$(grep -i -o "^." <<< "${extension}")" != '.' ]]
+    then
+        extension=".${extension}"
+    fi
+
+    mktemp "$(getTemporaryFolderRoot)/$(date +'%Y%m%d-%H%M%S')-XXXXXXXXXX${extension}"
+}
+
+function getTemporaryFolder()
+{
+    mktemp -d "$(getTemporaryFolderRoot)/$(date +'%Y%m%d-%H%M%S')-XXXXXXXXXX"
+}
+
+function getTemporaryFolderRoot()
+{
+    local temporaryFolder='/tmp'
+
+    if [[ "$(isEmptyString "${TMPDIR}")" = 'false' ]]
+    then
+        temporaryFolder="$(formatPath "${TMPDIR}")"
+    fi
+
+    echo "${temporaryFolder}"
+}
+
+function initializeFolder()
+{
+    local -r folder="${1}"
+
+    if [[ -d "${folder}" ]]
+    then
+        emptyFolder "${folder}"
+    else
+        mkdir -p "${folder}"
+    fi
 }
 
 function isValidJSONContent()
@@ -336,6 +478,38 @@ function redirectOutputToLogFile()
 
     mkdir -p "$(dirname "${logFile}")"
     exec > >(tee -a "${logFile}") 2>&1
+}
+
+function resetLogs()
+{
+    local logFolderPaths=("${@}")
+
+    # Default Log Folder Path
+
+    if [[ "${#logFolderPaths[@]}" -lt '1' ]]
+    then
+        logFolderPaths+=('/var/log')
+    fi
+
+    # Delete Old Logs
+
+    deleteOldLogs "${logFolderPaths[@]}"
+
+    # Reset Logs
+
+    header 'RESETTING LOGS'
+
+    local i=0
+
+    for ((i = 0; i < ${#logFolderPaths[@]}; i = i + 1))
+    do
+        checkExistFolder "${logFolderPaths[i]}"
+
+        find "${logFolderPaths[i]}" \
+            -type f \
+            -exec cp -f '/dev/null' '{}' \; \
+            -print
+    done
 }
 
 function symlinkLocalBin()
@@ -581,6 +755,123 @@ function isPositiveInteger()
     fi
 
     echo 'false' && return 1
+}
+
+################
+# OS UTILITIES #
+################
+
+function checkRequireLinuxSystem()
+{
+    if [[ "$(isAmazonLinuxDistributor)" = 'false' && "$(isCentOSDistributor)" = 'false' && "$(isRedHatDistributor)" = 'false' && "$(isUbuntuDistributor)" = 'false' ]]
+    then
+        fatal '\nFATAL : only support Amazon-Linux, CentOS, RedHat, or Ubuntu OS'
+    fi
+
+    if [[ "$(is64BitSystem)" = 'false' ]]
+    then
+        fatal '\nFATAL : non x86_64 OS found'
+    fi
+}
+
+function checkRequireMacSystem()
+{
+    if [[ "$(isMacOperatingSystem)" = 'false' ]]
+    then
+        fatal '\nFATAL : only support Mac OS'
+    fi
+
+    if [[ "$(is64BitSystem)" = 'false' ]]
+    then
+        fatal '\nFATAL : non x86_64 OS found'
+    fi
+}
+
+function getMachineDescription()
+{
+    lsb_release -d -s
+}
+
+function getMachineRelease()
+{
+    lsb_release -r -s
+}
+
+function is64BitSystem()
+{
+    isMachineHardware 'x86_64'
+}
+
+function isAmazonLinuxDistributor()
+{
+    isDistributor 'amzn'
+}
+
+function isCentOSDistributor()
+{
+    isDistributor 'centos'
+}
+
+function isDistributor()
+{
+    local -r distributor="${1}"
+
+    local -r found="$(grep -F -i -o -s "${distributor}" '/proc/version')"
+
+    if [[ "$(isEmptyString "${found}")" = 'true' ]]
+    then
+        echo 'false' && return 1
+    fi
+
+    echo 'true' && return 0
+}
+
+function isLinuxOperatingSystem()
+{
+    isOperatingSystem 'Linux'
+}
+
+function isMachineHardware()
+{
+    local -r machineHardware="$(escapeGrepSearchPattern "${1}")"
+
+    local -r found="$(uname -m | grep -E -i -o "^${machineHardware}$")"
+
+    if [[ "$(isEmptyString "${found}")" = 'true' ]]
+    then
+        echo 'false' && return 1
+    fi
+
+    echo 'true' && return 0
+}
+
+function isMacOperatingSystem()
+{
+    isOperatingSystem 'Darwin'
+}
+
+function isOperatingSystem()
+{
+    local -r operatingSystem="$(escapeGrepSearchPattern "${1}")"
+
+    local -r found="$(uname -s | grep -E -i -o "^${operatingSystem}$")"
+
+    if [[ "$(isEmptyString "${found}")" = 'true' ]]
+    then
+        echo 'false' && return 1
+    fi
+
+    echo 'true' && return 0
+}
+
+function isRedHatDistributor()
+{
+    isDistributor 'redhat'
+}
+
+function isUbuntuDistributor()
+{
+    isDistributor 'ubuntu'
 }
 
 #####################
@@ -860,27 +1151,6 @@ function upgradePIPPackage()
 # SERVICE UTILITIES #
 #####################
 
-function enableService()
-{
-    local -r serviceName="${1}"
-
-    checkNonEmptyString "${serviceName}" 'undefined service name'
-
-    if [[ "$(existCommand 'systemctl')" = 'true' ]]
-    then
-        header "ENABLE SYSTEMD ${serviceName}"
-
-        systemctl daemon-reload
-        systemctl enable "${serviceName}"
-        systemctl status "${serviceName}" --full --no-pager || true
-    else
-        header "ENABLE SERVICE ${serviceName}"
-
-        chkconfig "${serviceName}" on
-        service "${serviceName}" status || true
-    fi
-}
-
 function disableService()
 {
     local -r serviceName="${1}"
@@ -900,6 +1170,27 @@ function disableService()
 
         chkconfig "${serviceName}" off
         service "${serviceName}" stop || true
+        service "${serviceName}" status || true
+    fi
+}
+
+function enableService()
+{
+    local -r serviceName="${1}"
+
+    checkNonEmptyString "${serviceName}" 'undefined service name'
+
+    if [[ "$(existCommand 'systemctl')" = 'true' ]]
+    then
+        header "ENABLE SYSTEMD ${serviceName}"
+
+        systemctl daemon-reload
+        systemctl enable "${serviceName}"
+        systemctl status "${serviceName}" --full --no-pager || true
+    else
+        header "ENABLE SERVICE ${serviceName}"
+
+        chkconfig "${serviceName}" on
         service "${serviceName}" status || true
     fi
 }
@@ -1302,6 +1593,208 @@ function addSwapSpace()
     free -m
 }
 
+function checkExistCommand()
+{
+    local -r command="${1}"
+    local -r errorMessage="${2}"
+
+    if [[ "$(existCommand "${command}")" = 'false' ]]
+    then
+        if [[ "$(isEmptyString "${errorMessage}")" = 'true' ]]
+        then
+            fatal "\nFATAL : command '${command}' not found"
+        fi
+
+        fatal "\nFATAL : ${errorMessage}"
+    fi
+}
+
+function checkRequirePorts()
+{
+    local -r ports=("${@}")
+
+    installPackage 'lsof' 'lsof'
+
+    local -r headerRegex='^COMMAND\s\+PID\s\+USER\s\+FD\s\+TYPE\s\+DEVICE\s\+SIZE\/OFF\s\+NODE\s\+NAME$'
+    local -r status="$(lsof -i -n -P | grep "\( (LISTEN)$\)\|\(${headerRegex}\)")"
+    local open=''
+    local port=''
+
+    for port in "${ports[@]}"
+    do
+        local found=''
+        found="$(grep -i ":${port} (LISTEN)$" <<< "${status}" || echo)"
+
+        if [[ "$(isEmptyString "${found}")" = 'false' ]]
+        then
+            open="${open}\n${found}"
+        fi
+    done
+
+    if [[ "$(isEmptyString "${open}")" = 'false' ]]
+    then
+        echo -e    "\033[1;31mFollowing ports are still opened. Make sure you uninstall or stop them before a new installation!\033[0m"
+        echo -e -n "\033[1;34m\n$(grep "${headerRegex}" <<< "${status}")\033[0m"
+        echo -e    "\033[1;36m${open}\033[0m\n"
+
+        exit 1
+    fi
+}
+
+function displayOpenPorts()
+{
+    local -r sleepTimeInSecond="${1}"
+
+    installPackage 'lsof' 'lsof'
+
+    header 'DISPLAYING OPEN PORTS'
+
+    if [[ "$(isEmptyString "${sleepTimeInSecond}")" = 'false' ]]
+    then
+        sleep "${sleepTimeInSecond}"
+    fi
+
+    lsof -i -n -P | grep -i ' (LISTEN)$' | sort -f
+}
+
+function existCommand()
+{
+    local -r command="${1}"
+
+    if [[ "$(which "${command}" 2> '/dev/null')" = '' ]]
+    then
+        echo 'false' && return 1
+    fi
+
+    echo 'true' && return 0
+}
+
+function existDisk()
+{
+    local -r disk="${1}"
+
+    local -r foundDisk="$(fdisk -l "${disk}" 2> '/dev/null' | grep -E -i -o "^Disk\s+$(escapeGrepSearchPattern "${disk}"): ")"
+
+    if [[ "$(isEmptyString "${disk}")" = 'false' && "$(isEmptyString "${foundDisk}")" = 'false' ]]
+    then
+        echo 'true' && return 0
+    fi
+
+    echo 'false' && return 1
+}
+
+function existDiskMount()
+{
+    local -r disk="$(escapeGrepSearchPattern "${1}")"
+    local -r mountOn="$(escapeGrepSearchPattern "${2}")"
+
+    local -r foundMount="$(df | grep -E "^${disk}\s+.*\s+${mountOn}$")"
+
+    if [[ "$(isEmptyString "${foundMount}")" = 'true' ]]
+    then
+        echo 'false' && return 1
+    fi
+
+    echo 'true' && return 0
+}
+
+function existModule()
+{
+    local -r module="${1}"
+
+    checkNonEmptyString "${module}" 'undefined module'
+
+    if [[ "$(lsmod | awk '{ print $1 }' | grep -F -o "${module}")" = '' ]]
+    then
+        echo 'false' && return 1
+    fi
+
+    echo 'true' && return 0
+}
+
+function existMount()
+{
+    local -r mountOn="$(escapeGrepSearchPattern "${1}")"
+
+    local -r foundMount="$(df | grep -E ".*\s+${mountOn}$")"
+
+    if [[ "$(isEmptyString "${foundMount}")" = 'true' ]]
+    then
+        echo 'false' && return 1
+    fi
+
+    echo 'true' && return 0
+}
+
+function flushFirewall()
+{
+    header 'FLUSHING FIREWALL'
+
+    iptables -P INPUT ACCEPT
+    iptables -P FORWARD ACCEPT
+    iptables -P OUTPUT ACCEPT
+
+    iptables -t nat -F
+    iptables -t mangle -F
+    iptables -F
+    iptables -X
+
+    iptables --list
+}
+
+function isPortOpen()
+{
+    local -r port="$(escapeGrepSearchPattern "${1}")"
+
+    checkNonEmptyString "${port}" 'undefined port'
+
+    if [[ "$(isAmazonLinuxDistributor)" = 'true' || "$(isRedHatDistributor)" = 'true' || "$(isUbuntuDistributor)" = 'true' ]]
+    then
+        local -r process="$(netstat -l -n -t -u | grep -E ":${port}\s+" | head -1)"
+    elif [[ "$(isCentOSDistributor)" = 'true' || "$(isMacOperatingSystem)" = 'true' ]]
+    then
+        if [[ "$(isCentOSDistributor)" = 'true' ]]
+        then
+            installPackage 'lsof' 'lsof'
+        fi
+
+        local -r process="$(lsof -i -n -P | grep -E -i ":${port}\s+\(LISTEN\)$" | head -1)"
+    else
+        fatal '\nFATAL : only support Amazon-Linux, CentOS, Mac, RedHat, or Ubuntu OS'
+    fi
+
+    if [[ "$(isEmptyString "${process}")" = 'true' ]]
+    then
+        echo 'false' && return 1
+    fi
+
+    echo 'true' && return 0
+}
+
+function redirectJDKTMPDir()
+{
+    local -r option="_JAVA_OPTIONS='-Djava.io.tmpdir=/var/tmp'"
+
+    appendToFileIfNotFound '/etc/environment' "${option}" "${option}" 'false' 'false' 'true'
+    appendToFileIfNotFound '/etc/profile' "${option}" "${option}" 'false' 'false' 'true'
+}
+
+function remountTMP()
+{
+    header 'RE-MOUNTING TMP'
+
+    if [[ "$(existMount '/tmp')" = 'true' ]]
+    then
+        mount -o 'remount,rw,exec,nosuid' -v '/tmp'
+    else
+        warn 'WARN : mount /tmp not found'
+    fi
+}
+
+############################
+# USER AND GROUP UTILITIES #
+############################
+
 function addUser()
 {
     local -r userLogin="${1}"
@@ -1390,54 +1883,6 @@ function addUserToSudoWithoutPassword()
     chmod 440 "/etc/sudoers.d/${userLogin}"
 }
 
-function checkExistCommand()
-{
-    local -r command="${1}"
-    local -r errorMessage="${2}"
-
-    if [[ "$(existCommand "${command}")" = 'false' ]]
-    then
-        if [[ "$(isEmptyString "${errorMessage}")" = 'true' ]]
-        then
-            fatal "\nFATAL : command '${command}' not found"
-        fi
-
-        fatal "\nFATAL : ${errorMessage}"
-    fi
-}
-
-function checkExistFile()
-{
-    local -r file="${1}"
-    local -r errorMessage="${2}"
-
-    if [[ "${file}" = '' || ! -f "${file}" ]]
-    then
-        if [[ "$(isEmptyString "${errorMessage}")" = 'true' ]]
-        then
-            fatal "\nFATAL : file '${file}' not found"
-        fi
-
-        fatal "\nFATAL : ${errorMessage}"
-    fi
-}
-
-function checkExistFolder()
-{
-    local -r folder="${1}"
-    local -r errorMessage="${2}"
-
-    if [[ "${folder}" = '' || ! -d "${folder}" ]]
-    then
-        if [[ "$(isEmptyString "${errorMessage}")" = 'true' ]]
-        then
-            fatal "\nFATAL : folder '${folder}' not found"
-        fi
-
-        fatal "\nFATAL : ${errorMessage}"
-    fi
-}
-
 function checkExistGroupName()
 {
     local -r groupName="${1}"
@@ -1458,67 +1903,9 @@ function checkExistUserLogin()
     fi
 }
 
-function checkRequirePorts()
-{
-    local -r ports=("${@}")
-
-    installPackage 'lsof' 'lsof'
-
-    local -r headerRegex='^COMMAND\s\+PID\s\+USER\s\+FD\s\+TYPE\s\+DEVICE\s\+SIZE\/OFF\s\+NODE\s\+NAME$'
-    local -r status="$(lsof -i -n -P | grep "\( (LISTEN)$\)\|\(${headerRegex}\)")"
-    local open=''
-    local port=''
-
-    for port in "${ports[@]}"
-    do
-        local found=''
-        found="$(grep -i ":${port} (LISTEN)$" <<< "${status}" || echo)"
-
-        if [[ "$(isEmptyString "${found}")" = 'false' ]]
-        then
-            open="${open}\n${found}"
-        fi
-    done
-
-    if [[ "$(isEmptyString "${open}")" = 'false' ]]
-    then
-        echo -e    "\033[1;31mFollowing ports are still opened. Make sure you uninstall or stop them before a new installation!\033[0m"
-        echo -e -n "\033[1;34m\n$(grep "${headerRegex}" <<< "${status}")\033[0m"
-        echo -e    "\033[1;36m${open}\033[0m\n"
-
-        exit 1
-    fi
-}
-
 function checkRequireRootUser()
 {
     checkRequireUserLogin 'root'
-}
-
-function checkRequireLinuxSystem()
-{
-    if [[ "$(isAmazonLinuxDistributor)" = 'false' && "$(isCentOSDistributor)" = 'false' && "$(isRedHatDistributor)" = 'false' && "$(isUbuntuDistributor)" = 'false' ]]
-    then
-        fatal '\nFATAL : only support Amazon-Linux, CentOS, RedHat, or Ubuntu OS'
-    fi
-
-    if [[ "$(is64BitSystem)" = 'false' ]]
-    then
-        fatal '\nFATAL : non x86_64 OS found'
-    fi
-}
-
-function checkRequireMacSystem()
-{
-    if [[ "$(isMacOperatingSystem)" = 'false' ]]
-    then
-        fatal '\nFATAL : only support Mac OS'
-    fi
-
-    if [[ "$(is64BitSystem)" = 'false' ]]
-    then
-        fatal '\nFATAL : non x86_64 OS found'
-    fi
 }
 
 function checkRequireUserLogin()
@@ -1529,24 +1916,6 @@ function checkRequireUserLogin()
     then
         fatal "\nFATAL : user login '${userLogin}' required"
     fi
-}
-
-function cleanUpSystemFolders()
-{
-    header 'CLEANING UP SYSTEM FOLDERS'
-
-    local -r folders=(
-        '/tmp'
-        '/var/tmp'
-    )
-
-    local folder=''
-
-    for folder in "${folders[@]}"
-    do
-        echo "Cleaning up folder '${folder}'"
-        emptyFolder "${folder}"
-    done
 }
 
 function configUserGIT()
@@ -1598,44 +1967,6 @@ function configUserSSH()
     cat "${userHome}/.ssh/${configFileName}"
 }
 
-function deleteOldLogs()
-{
-    local logFolderPaths=("${@}")
-
-    header 'DELETING OLD LOGS'
-
-    # Default Log Folder Path
-
-    if [[ "${#logFolderPaths[@]}" -lt '1' ]]
-    then
-        logFolderPaths+=('/var/log')
-    fi
-
-    # Walk Each Log Folder Path
-
-    local i=0
-
-    for ((i = 0; i < ${#logFolderPaths[@]}; i = i + 1))
-    do
-        checkExistFolder "${logFolderPaths[i]}"
-
-        find "${logFolderPaths[i]}" \
-            -type f \
-            \( \
-                -regex '.*-[0-9]+' -o \
-                -regex '.*\.[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]\.log' -o \
-                -regex '.*\.[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]\.txt' -o \
-                -regex '.*\.[0-9]+' -o \
-                -regex '.*\.[0-9]+\.log' -o \
-                -regex '.*\.gz' -o \
-                -regex '.*\.old' -o \
-                -regex '.*\.xz' \
-            \) \
-            -delete \
-            -print
-    done
-}
-
 function deleteUser()
 {
     local -r userLogin="${1}"
@@ -1646,109 +1977,11 @@ function deleteUser()
     fi
 }
 
-function displayOpenPorts()
-{
-    local -r sleepTimeInSecond="${1}"
-
-    installPackage 'lsof' 'lsof'
-
-    header 'DISPLAYING OPEN PORTS'
-
-    if [[ "$(isEmptyString "${sleepTimeInSecond}")" = 'false' ]]
-    then
-        sleep "${sleepTimeInSecond}"
-    fi
-
-    lsof -i -n -P | grep -i ' (LISTEN)$' | sort -f
-}
-
-function emptyFolder()
-{
-    local -r folder="${1}"
-
-    checkExistFolder "${folder}"
-
-    local -r currentPath="$(pwd)"
-
-    cd "${folder}"
-    find '.' -not -name '.' -delete
-    cd "${currentPath}"
-}
-
-function existCommand()
-{
-    local -r command="${1}"
-
-    if [[ "$(which "${command}" 2> '/dev/null')" = '' ]]
-    then
-        echo 'false' && return 1
-    fi
-
-    echo 'true' && return 0
-}
-
-function existDisk()
-{
-    local -r disk="${1}"
-
-    local -r foundDisk="$(fdisk -l "${disk}" 2> '/dev/null' | grep -E -i -o "^Disk\s+$(escapeGrepSearchPattern "${disk}"): ")"
-
-    if [[ "$(isEmptyString "${disk}")" = 'false' && "$(isEmptyString "${foundDisk}")" = 'false' ]]
-    then
-        echo 'true' && return 0
-    fi
-
-    echo 'false' && return 1
-}
-
-function existDiskMount()
-{
-    local -r disk="$(escapeGrepSearchPattern "${1}")"
-    local -r mountOn="$(escapeGrepSearchPattern "${2}")"
-
-    local -r foundMount="$(df | grep -E "^${disk}\s+.*\s+${mountOn}$")"
-
-    if [[ "$(isEmptyString "${foundMount}")" = 'true' ]]
-    then
-        echo 'false' && return 1
-    fi
-
-    echo 'true' && return 0
-}
-
 function existGroupName()
 {
     local -r group="${1}"
 
     if [[ "$(grep -E -o "^${group}:" '/etc/group')" = '' ]]
-    then
-        echo 'false' && return 1
-    fi
-
-    echo 'true' && return 0
-}
-
-function existModule()
-{
-    local -r module="${1}"
-
-    checkNonEmptyString "${module}" 'undefined module'
-
-    if [[ "$(lsmod | awk '{ print $1 }' | grep -F -o "${module}")" = '' ]]
-    then
-        echo 'false' && return 1
-    fi
-
-    echo 'true' && return 0
-}
-
-function existMount()
-{
-    local -r mountOn="$(escapeGrepSearchPattern "${1}")"
-
-    local -r foundMount="$(df | grep -E ".*\s+${mountOn}$")"
-
-    if [[ "$(isEmptyString "${foundMount}")" = 'true' ]]
     then
         echo 'false' && return 1
     fi
@@ -1766,22 +1999,6 @@ function existUserLogin()
     fi
 
     echo 'false' && return 1
-}
-
-function flushFirewall()
-{
-    header 'FLUSHING FIREWALL'
-
-    iptables -P INPUT ACCEPT
-    iptables -P FORWARD ACCEPT
-    iptables -P OUTPUT ACCEPT
-
-    iptables -t nat -F
-    iptables -t mangle -F
-    iptables -F
-    iptables -X
-
-    iptables --list
 }
 
 function generateSSHPublicKeyFromPrivateKey()
@@ -1859,16 +2076,6 @@ function getCurrentUserHomeFolder()
     getUserHomeFolder "$(whoami)"
 }
 
-function getMachineDescription()
-{
-    lsb_release -d -s
-}
-
-function getMachineRelease()
-{
-    lsb_release -r -s
-}
-
 function getProfileFilePath()
 {
     local -r user="${1}"
@@ -1887,35 +2094,6 @@ function getProfileFilePath()
             echo "${bashProfileFilePath}"
         fi
     fi
-}
-
-function getTemporaryFile()
-{
-    local extension="${1}"
-
-    if [[ "$(isEmptyString "${extension}")" = 'false' && "$(grep -i -o "^." <<< "${extension}")" != '.' ]]
-    then
-        extension=".${extension}"
-    fi
-
-    mktemp "$(getTemporaryFolderRoot)/$(date +'%Y%m%d-%H%M%S')-XXXXXXXXXX${extension}"
-}
-
-function getTemporaryFolder()
-{
-    mktemp -d "$(getTemporaryFolderRoot)/$(date +'%Y%m%d-%H%M%S')-XXXXXXXXXX"
-}
-
-function getTemporaryFolderRoot()
-{
-    local temporaryFolder='/tmp'
-
-    if [[ "$(isEmptyString "${TMPDIR}")" = 'false' ]]
-    then
-        temporaryFolder="$(formatPath "${TMPDIR}")"
-    fi
-
-    echo "${temporaryFolder}"
 }
 
 function getUserGroupName()
@@ -1946,124 +2124,6 @@ function getUserHomeFolder()
     fi
 }
 
-function initializeFolder()
-{
-    local -r folder="${1}"
-
-    if [[ -d "${folder}" ]]
-    then
-        emptyFolder "${folder}"
-    else
-        mkdir -p "${folder}"
-    fi
-}
-
-function is64BitSystem()
-{
-    isMachineHardware 'x86_64'
-}
-
-function isAmazonLinuxDistributor()
-{
-    isDistributor 'amzn'
-}
-
-function isCentOSDistributor()
-{
-    isDistributor 'centos'
-}
-
-function isDistributor()
-{
-    local -r distributor="${1}"
-
-    local -r found="$(grep -F -i -o -s "${distributor}" '/proc/version')"
-
-    if [[ "$(isEmptyString "${found}")" = 'true' ]]
-    then
-        echo 'false' && return 1
-    fi
-
-    echo 'true' && return 0
-}
-
-function isLinuxOperatingSystem()
-{
-    isOperatingSystem 'Linux'
-}
-
-function isMachineHardware()
-{
-    local -r machineHardware="$(escapeGrepSearchPattern "${1}")"
-
-    local -r found="$(uname -m | grep -E -i -o "^${machineHardware}$")"
-
-    if [[ "$(isEmptyString "${found}")" = 'true' ]]
-    then
-        echo 'false' && return 1
-    fi
-
-    echo 'true' && return 0
-}
-
-function isMacOperatingSystem()
-{
-    isOperatingSystem 'Darwin'
-}
-
-function isOperatingSystem()
-{
-    local -r operatingSystem="$(escapeGrepSearchPattern "${1}")"
-
-    local -r found="$(uname -s | grep -E -i -o "^${operatingSystem}$")"
-
-    if [[ "$(isEmptyString "${found}")" = 'true' ]]
-    then
-        echo 'false' && return 1
-    fi
-
-    echo 'true' && return 0
-}
-
-function isPortOpen()
-{
-    local -r port="$(escapeGrepSearchPattern "${1}")"
-
-    checkNonEmptyString "${port}" 'undefined port'
-
-    if [[ "$(isAmazonLinuxDistributor)" = 'true' || "$(isRedHatDistributor)" = 'true' || "$(isUbuntuDistributor)" = 'true' ]]
-    then
-        local -r process="$(netstat -l -n -t -u | grep -E ":${port}\s+" | head -1)"
-    elif [[ "$(isCentOSDistributor)" = 'true' || "$(isMacOperatingSystem)" = 'true' ]]
-    then
-        if [[ "$(isCentOSDistributor)" = 'true' ]]
-        then
-            installPackage 'lsof' 'lsof'
-        fi
-
-        local -r process="$(lsof -i -n -P | grep -E -i ":${port}\s+\(LISTEN\)$" | head -1)"
-    else
-        fatal '\nFATAL : only support Amazon-Linux, CentOS, Mac, RedHat, or Ubuntu OS'
-    fi
-
-    if [[ "$(isEmptyString "${process}")" = 'true' ]]
-    then
-        echo 'false' && return 1
-    fi
-
-    echo 'true' && return 0
-}
-
-function isRedHatDistributor()
-{
-    isDistributor 'redhat'
-}
-
-function isUbuntuDistributor()
-{
-    isDistributor 'ubuntu'
-}
-
 function isUserLoginInGroupName()
 {
     local -r userLogin="${1}"
@@ -2078,56 +2138,4 @@ function isUserLoginInGroupName()
     fi
 
     echo 'false' && return 1
-}
-
-function redirectJDKTMPDir()
-{
-    local -r option="_JAVA_OPTIONS='-Djava.io.tmpdir=/var/tmp'"
-
-    appendToFileIfNotFound '/etc/environment' "${option}" "${option}" 'false' 'false' 'true'
-    appendToFileIfNotFound '/etc/profile' "${option}" "${option}" 'false' 'false' 'true'
-}
-
-function remountTMP()
-{
-    header 'RE-MOUNTING TMP'
-
-    if [[ "$(existMount '/tmp')" = 'true' ]]
-    then
-        mount -o 'remount,rw,exec,nosuid' -v '/tmp'
-    else
-        warn 'WARN : mount /tmp not found'
-    fi
-}
-
-function resetLogs()
-{
-    local logFolderPaths=("${@}")
-
-    # Default Log Folder Path
-
-    if [[ "${#logFolderPaths[@]}" -lt '1' ]]
-    then
-        logFolderPaths+=('/var/log')
-    fi
-
-    # Delete Old Logs
-
-    deleteOldLogs "${logFolderPaths[@]}"
-
-    # Reset Logs
-
-    header 'RESETTING LOGS'
-
-    local i=0
-
-    for ((i = 0; i < ${#logFolderPaths[@]}; i = i + 1))
-    do
-        checkExistFolder "${logFolderPaths[i]}"
-
-        find "${logFolderPaths[i]}" \
-            -type f \
-            -exec cp -f '/dev/null' '{}' \; \
-            -print
-    done
 }
