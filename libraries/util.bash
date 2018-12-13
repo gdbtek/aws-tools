@@ -1185,7 +1185,7 @@ function enableService()
         header "ENABLE SYSTEMD ${serviceName}"
 
         systemctl daemon-reload
-        systemctl enable "${serviceName}"
+        systemctl enable "${serviceName}" || true
         systemctl status "${serviceName}" --full --no-pager || true
     else
         header "ENABLE SERVICE ${serviceName}"
@@ -1216,7 +1216,7 @@ function startService()
         header "STARTING SYSTEMD ${serviceName}"
 
         systemctl daemon-reload
-        systemctl enable "${serviceName}"
+        systemctl enable "${serviceName}" || true
         systemctl start "${serviceName}"
         systemctl status "${serviceName}" --full --no-pager || true
     else
@@ -1613,7 +1613,7 @@ function checkRequirePorts()
 {
     local -r ports=("${@}")
 
-    installPackage 'lsof' 'lsof'
+    installPackages 'lsof'
 
     local -r headerRegex='^COMMAND\s\+PID\s\+USER\s\+FD\s\+TYPE\s\+DEVICE\s\+SIZE\/OFF\s\+NODE\s\+NAME$'
     local -r status="$(lsof -i -n -P | grep "\( (LISTEN)$\)\|\(${headerRegex}\)")"
@@ -1645,7 +1645,7 @@ function displayOpenPorts()
 {
     local -r sleepTimeInSecond="${1}"
 
-    installPackage 'lsof' 'lsof'
+    installPackages 'lsof'
 
     header 'DISPLAYING OPEN PORTS'
 
@@ -1755,7 +1755,7 @@ function isPortOpen()
     then
         if [[ "$(isCentOSDistributor)" = 'true' ]]
         then
-            installPackage 'lsof' 'lsof'
+            installPackages 'lsof'
         fi
 
         local -r process="$(lsof -i -n -P | grep -E -i ":${port}\s+\(LISTEN\)$" | head -1)"
