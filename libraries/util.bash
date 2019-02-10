@@ -782,23 +782,49 @@ function getGitUserPrimaryEmail()
     local -r user="${1}"
     local -r token="${2}"
 
+    # Validation
+
     checkNonEmptyString "${user}" 'undefined user'
     checkNonEmptyString "${token}" 'undefined token'
 
-    curl \
-        -s \
-        -X 'GET' \
-        -u "${user}:${token}" \
-        -L "https://api.github.com/user/emails" \
-        --retry 12 \
-        --retry-delay 5 |
-    jq \
-        --compact-output \
-        --raw-output \
-        --sort-keys \
-        '.[] |
-         select(.["primary"] == true) |
-         .["email"] // empty'
+    # Pagination
+
+    local page=1
+    local exitCount=0
+
+    for ((page = 1; page > exitCount; page = page + 1))
+    do
+        local emails="$(
+            curl \
+                -s \
+                -X 'GET' \
+                -u "${user}:${token}" \
+                -L "https://api.github.com/user/emails?page=${page}&per_page=100" \
+                --retry 12 \
+                --retry-delay 5 |
+            jq \
+                --compact-output \
+                --raw-output \
+                --sort-keys \
+                '.[] // empty' \
+        )"
+
+        local primaryEmail="$(
+            jq \
+                --compact-output \
+                --raw-output \
+                --sort-keys \
+                'select(.["primary"] == true) |
+                 .["email"] // empty' \
+            <<< "${emails}"
+        )"
+
+        if [[ "$(isEmptyString "${primaryEmail}")" = 'false' || "$(isEmptyString "${emails}")" = 'true' ]]
+        then
+            echo "${primaryEmail}"
+            exitCount="$((page + 1))"
+        fi
+    done
 }
 
 function getGitUserPrivateRepositorySSHURL()
@@ -844,7 +870,7 @@ function getGitUserRepositoryObjectKey()
                 -s \
                 -X 'GET' \
                 -u "${user}:${token}" \
-                -L "https://api.github.com/user/repos?affiliation=owner&per_page=100&page=${page}&visibility=${visibility}" \
+                -L "https://api.github.com/user/repos?affiliation=owner&page=${page}&per_page=100&visibility=${visibility}" \
                 --retry 12 \
                 --retry-delay 5 |
             jq \
