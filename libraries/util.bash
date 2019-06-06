@@ -1493,14 +1493,14 @@ function disableService()
         systemctl daemon-reload
         systemctl disable "${serviceName}"
         systemctl stop "${serviceName}" || true
-        systemctl status "${serviceName}" --full --no-pager || true
     else
         header "DISABLE SERVICE ${serviceName}"
 
         chkconfig "${serviceName}" off
         service "${serviceName}" stop || true
-        service "${serviceName}" status || true
     fi
+
+    statusService "${serviceName}"
 }
 
 function enableService()
@@ -1515,13 +1515,13 @@ function enableService()
 
         systemctl daemon-reload
         systemctl enable "${serviceName}" || true
-        systemctl status "${serviceName}" --full --no-pager || true
     else
         header "ENABLE SERVICE ${serviceName}"
 
         chkconfig "${serviceName}" on
-        service "${serviceName}" status || true
     fi
+
+    statusService "${serviceName}"
 }
 
 function restartService()
@@ -1547,12 +1547,30 @@ function startService()
         systemctl daemon-reload
         systemctl enable "${serviceName}" || true
         systemctl start "${serviceName}"
-        systemctl status "${serviceName}" --full --no-pager || true
     else
         header "STARTING SERVICE ${serviceName}"
 
         chkconfig "${serviceName}" on
         service "${serviceName}" start
+    fi
+
+    statusService "${serviceName}"
+}
+
+function statusService()
+{
+    local -r serviceName="${1}"
+
+    checkNonEmptyString "${serviceName}" 'undefined service name'
+
+    if [[ "$(existCommand 'systemctl')" = 'true' ]]
+    then
+        header "STATUS SYSTEMD ${serviceName}"
+
+        systemctl status "${serviceName}" --full --no-pager || true
+    else
+        header "STATUS SERVICE ${serviceName}"
+
         service "${serviceName}" status || true
     fi
 }
@@ -1569,13 +1587,13 @@ function stopService()
 
         systemctl daemon-reload
         systemctl stop "${serviceName}" || true
-        systemctl status "${serviceName}" --full --no-pager || true
     else
         header "STOPPING SERVICE ${serviceName}"
 
         service "${serviceName}" stop || true
-        service "${serviceName}" status || true
     fi
+
+    statusService "${serviceName}"
 }
 
 ####################
