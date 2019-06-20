@@ -69,12 +69,8 @@ function generateSignURL()
 
 function main()
 {
-    local -r appFolderPath="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-    local -r optCount="${#}"
-
-    source "${appFolderPath}/libraries/aws.bash"
-    source "${appFolderPath}/libraries/util.bash"
+    source "$(dirname "${BASH_SOURCE[0]}")/libraries/aws.bash"
+    source "$(dirname "${BASH_SOURCE[0]}")/libraries/util.bash"
 
     # Set Default Values
 
@@ -86,6 +82,8 @@ function main()
     MINUTE_EXPIRE='15'
 
     # Parse Inputs
+
+    local -r optCount="${#}"
 
     while [[ "${#}" -gt '0' ]]
     do
