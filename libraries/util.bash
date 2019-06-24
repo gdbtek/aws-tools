@@ -311,7 +311,10 @@ function createInitFileFromTemplate()
     local -r templateFolderPath="${2}"
     local -r initConfigDataFromTemplate=("${@:3}")
 
-    createFileFromTemplate "${templateFolderPath}/${serviceName}.service.systemd" "/etc/systemd/system/${serviceName}.service" "${initConfigDataFromTemplate[@]}"
+    createFileFromTemplate \
+        "${templateFolderPath}/${serviceName}.service.systemd" \
+        "/etc/systemd/system/${serviceName}.service" \
+        "${initConfigDataFromTemplate[@]}"
 }
 
 function deleteOldLogs()
@@ -512,6 +515,20 @@ function resetLogs()
             -type f \
             -exec cp -f '/dev/null' '{}' \; \
             -print
+    done
+}
+
+function symlinkListUsrBin()
+{
+    local -r sourceFilePaths=("${@}")
+
+    local sourceFilePath=''
+
+    for sourceFilePath in "${sourceFilePaths[@]}"
+    do
+        chmod 755 "${sourceFilePath}"
+        rm -f -r "/usr/bin/$(basename "${sourceFilePath}")"
+        ln -f -s "${sourceFilePath}" "/usr/bin/$(basename "${sourceFilePath}")"
     done
 }
 
@@ -966,7 +983,7 @@ function installPortableBinary()
     then
         if [[ "$(getFileExtension "${downloadURL}")" = 'sh' ]]
         then
-            curl -L "${downloadURL}" --retry 12 --retry-delay 5 | bash -e
+            curl -s -L "${downloadURL}" --retry 12 --retry-delay 5 | bash -e
         else
             unzipRemoteFile "${downloadURL}" "${installFolderPath}"
         fi
@@ -988,8 +1005,7 @@ function installPortableBinary()
 
     for binarySubPath in "${binarySubPaths[@]}"
     do
-        chmod 755 "${installFolderPath}/${binarySubPath}"
-        ln -f -s "${installFolderPath}/${binarySubPath}" "/usr/bin/$(basename "${binarySubPath}")"
+        symlinkListUsrBin "${installFolderPath}/${binarySubPath}"
     done
 
     displayVersion "$("/usr/bin/$(basename "${binarySubPaths[0]}")" "${versionOption}")"
