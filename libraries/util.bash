@@ -2221,6 +2221,8 @@ function flushFirewall()
     iptables -X
 
     iptables --list
+
+    saveFirewall
 }
 
 function isPortOpen()
@@ -2270,6 +2272,30 @@ function remountTMP()
     else
         warn 'WARN : mount /tmp not found'
     fi
+}
+
+function saveFirewall()
+{
+    header 'SAVING FIREWALL'
+
+    local ruleFile=''
+
+    for ruleFile in '/etc/iptables/rules.v4' '/etc/iptables/rules.v6' '/etc/sysconfig/iptables' '/etc/sysconfig/ip6tables'
+    do
+        if [[ -f "${ruleFile}" ]]
+        then
+            if [[ "$(grep -F '6' <<< "${ruleFile}")" = '' ]]
+            then
+                iptables-save > "${ruleFile}"
+            else
+                ip6tables-save > "${ruleFile}"
+            fi
+
+            info "${ruleFile}"
+            cat "${ruleFile}"
+            echo
+        fi
+    done
 }
 
 ############################
