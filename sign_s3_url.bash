@@ -128,7 +128,8 @@ function main()
 
                 if [[ "${#}" -gt '0' ]]
                 then
-                    local bucket="$(trimString "${1}")"
+                    local bucket=''
+                    bucket="$(trimString "${1}")"
                 fi
 
                 ;;
@@ -138,7 +139,8 @@ function main()
 
                 if [[ "${#}" -gt '0' ]]
                 then
-                    local filePath="$(formatPath "$(trimString "${1}")" | sed -e 's/^\///g')"
+                    local filePath=''
+                    filePath="$(formatPath "$(trimString "${1}")" | sed -e 's/^\///g')"
                 fi
 
                 ;;
