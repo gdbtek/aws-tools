@@ -1189,6 +1189,44 @@ function getGitUserRepositoryObjectKey()
     echo "${results}" | sort -f
 }
 
+function isGitUserSuspended()
+{
+    local -r user="${1}"
+    local -r token="${2}"
+    local gitURL="${3}"
+    local -r login="${4}"
+
+    # Default Values
+
+    if [[ "$(isEmptyString "${gitURL}")" = 'true' ]]
+    then
+        gitURL='https://api.github.com'
+    fi
+
+    # Check Status
+
+    local -r suspendedAt="$(
+        curl \
+            -s \
+            -X 'GET' \
+            -u "${user}:${token}" \
+            -L "${gitURL}/users/${login}" \
+            --retry 12 \
+            --retry-delay 5 |
+        jq \
+            --compact-output \
+            --raw-output \
+            '.["suspended_at"] // empty'
+    )"
+
+    if [[ "$(isEmptyString "${suspendedAt}")" = 'false' ]]
+    then
+        echo 'true' && return 0
+    fi
+
+    echo 'false' && return 1
+}
+
 function isValidGitToken()
 {
     local -r user="${1}"
@@ -1225,6 +1263,40 @@ function isValidGitToken()
     fi
 
     echo 'true' && return 0
+}
+
+function removeGitCollaboratorFromRepository()
+{
+    local -r user="${1}"
+    local -r token="${2}"
+    local -r gitURL="${3}"
+    local -r orgName="${4}"
+    local -r repository="${5}"
+    local -r collaborator="${6}"
+
+    curl \
+        -s \
+        -X 'DELETE' \
+        -u "${user}:${token}" \
+        -L "${gitURL}/repos/${orgName}/${repository}/collaborators/${collaborator}" \
+        --retry 12 \
+        --retry-delay 5
+}
+
+function removeGitUserFromTeam()
+{
+    local -r user="${1}"
+    local -r token="${2}"
+    local -r teamURL="${3}"
+    local -r teamUser="${4}"
+
+    curl \
+        -s \
+        -X 'DELETE' \
+        -u "${user}:${token}" \
+        -L "${teamURL}/memberships/${teamUser}" \
+        --retry 12 \
+        --retry-delay 5
 }
 
 #####################
