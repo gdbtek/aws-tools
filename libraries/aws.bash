@@ -554,7 +554,7 @@ function cloneIAMRole()
     # Get Exist IAM Role Trust Relationships
 
     aws iam get-role \
-        --no-paginate \
+        --no-cli-pager \
         --output 'json' \
         --role-name "${existIAMRoleName}" |
     jq \
@@ -576,7 +576,7 @@ function cloneIAMRole()
 
     local -r existInlinePolicyNames="$(
         aws iam list-role-policies \
-            --no-paginate \
+            --no-cli-pager \
             --output 'json' \
             --role-name "${existIAMRoleName}" |
         jq \
@@ -591,7 +591,7 @@ function cloneIAMRole()
     do
         local existInlineRolePolicy="$(
             aws iam get-role-policy \
-                --no-paginate \
+                --no-cli-pager \
                 --output 'json' \
                 --policy-name "${existInlinePolicyName}" \
                 --role-name "${existIAMRoleName}"
@@ -601,7 +601,7 @@ function cloneIAMRole()
         rm -f "${policyTempFilePath}"
 
         aws iam put-role-policy \
-            --no-paginate \
+            --no-cli-pager \
             --output 'json' \
             --policy-document "file://${policyTempFilePath}" \
             --policy-name "$(jq --compact-output --raw-output '.["PolicyName"] // empty' <<< "${existInlineRolePolicy}")" \
@@ -615,7 +615,7 @@ function cloneIAMRole()
 
     local -r managedPolicyArns="$(
         aws iam list-attached-role-policies \
-            --no-paginate \
+            --no-cli-pager \
             --output 'json' \
             --role-name "${existIAMRoleName}" |
         jq \
@@ -936,6 +936,109 @@ function getAWSAccountID()
 # VPC UTILITIES #
 #################
 
+function acceptVPCPeeringConnection()
+{
+    local -r vpcPeeringConnectionID="${1}"
+    local -r vpcPeeringConnectionName="${2}"
+
+    checkNonEmptyString "${vpcPeeringConnectionID}" 'undefined vpc peering connection id'
+
+    if [[ "$(isEmptyString "${vpcPeeringConnectionName}")" = 'true' ]]
+    then
+        header "${vpcPeeringConnectionID}"
+    else
+        header "${vpcPeeringConnectionID} :: ${vpcPeeringConnectionName}"
+    fi
+
+    # Accept Connection Request
+
+    local -r vpcPeeringConnection="$(
+        aws ec2 accept-vpc-peering-connection \
+            --output 'json' \
+            --vpc-peering-connection-id "${vpcPeeringConnectionID}" |
+        jq \
+            --compact-output \
+            --raw-output \
+            --sort-keys \
+            '. // empty'
+    )"
+
+    # Update Connection Name
+
+    if [[ "$(isEmptyString "${vpcPeeringConnectionName}")" = 'false' ]]
+    then
+        aws ec2 create-tags \
+            --resources "${vpcPeeringConnectionID}" \
+            --tags "Key=Name,Value=${vpcPeeringConnectionName}"
+    fi
+
+    # Update Accepter Route Tables
+
+    local -r requesterVPCCIDRBlocks="$(jq --compact-output --raw-output '.["VpcPeeringConnection"] | .["RequesterVpcInfo"] | .["CidrBlockSet"] | .[] | .["CidrBlock"] // empty' <<< "${vpcPeeringConnection}")"
+
+    local -r accepterVPCID="$(jq --compact-output --raw-output '.["VpcPeeringConnection"] | .["AccepterVpcInfo"] | .["VpcId"] // empty' <<< "${vpcPeeringConnection}")"
+
+    local -r accepterRouteTables="$(
+        aws ec2 describe-route-tables \
+            --filter "Name=vpc-id,Values=${accepterVPCID}" \
+            --no-cli-pager \
+            --output 'json'
+    )"
+
+    local -r accepterRouteTableIDs="$(jq --compact-output --raw-output '.["RouteTables"] | .[] | .["RouteTableId"] // empty' <<< "${accepterRouteTables}")"
+
+    local accepterRouteTableID=''
+
+    for accepterRouteTableID in ${accepterRouteTableIDs[@]}
+    do
+        local requesterVPCCIDRBlock=''
+
+        for requesterVPCCIDRBlock in ${requesterVPCCIDRBlocks[@]}
+        do
+            echo -e "creating route with requester cidr \033[1;36m${requesterVPCCIDRBlock}\033[0m to route table \033[1;34m${accepterRouteTableID}\033[0m of \033[1;34m${accepterVPCID}\033[0m"
+
+            local createRouteResult="$(
+                aws ec2 create-route \
+                    --destination-cidr-block "${requesterVPCCIDRBlock}" \
+                    --output 'text' \
+                    --route-table-id "${accepterRouteTableID}" \
+                    --vpc-peering-connection-id "${vpcPeeringConnectionID}" 2>&1 |
+                tr -d '\n'
+            )"
+
+            if [[ "${createRouteResult}" = 'True' ]]
+            then
+                echo -e "  \033[1;32mcreated route successfully\033[0m"
+            else
+                local existVPCPeeringConnectionID="$(
+                    jq \
+                        --arg jqAccepterRouteTableID "${accepterRouteTableID}" \
+                        --arg jqRequesterVPCCIDRBlock "${requesterVPCCIDRBlock}" \
+                        --compact-output \
+                        --raw-output \
+                        '.["RouteTables"] |
+                         .[] |
+                         select(.["RouteTableId"] == $jqAccepterRouteTableID) |
+                         .["Routes"] |
+                         .[] |
+                         select(.["DestinationCidrBlock"] == $jqRequesterVPCCIDRBlock) |
+                         .["VpcPeeringConnectionId"] // empty' \
+                    <<< "${accepterRouteTables}"
+                )"
+
+                if [[ "${vpcPeeringConnectionID}" = "${existVPCPeeringConnectionID}" ]]
+                then
+                    warn "  WARN  : ${createRouteResult}"
+                else
+                    error "  ERROR : ${createRouteResult} (${existVPCPeeringConnectionID})"
+                fi
+            fi
+
+            echo
+        done
+    done
+}
+
 function getAvailabilityZonesByVPCName()
 {
     local -r vpcName="${1}"
@@ -981,6 +1084,22 @@ function getPublicElasticIPs()
     aws ec2 describe-addresses \
         --output 'text' \
         --query 'sort_by(Addresses, &PublicIp)[*].[PublicIp]'
+}
+
+function getRequesterVPCIDByVPCPeeringConnectionID()
+{
+    local -r vpcPeeringConnectionID="${1}"
+
+    checkNonEmptyString "${vpcPeeringConnectionID}" 'undefined vpc peering connection id'
+
+    aws ec2 describe-vpc-peering-connections \
+        --filters "Name=vpc-peering-connection-id,Values=${vpcPeeringConnectionID}" \
+        --no-cli-pager \
+        --output 'json' |
+    jq \
+        --compact-output \
+        --raw-output \
+        '.["VpcPeeringConnections"] | .[] | .["RequesterVpcInfo"] | .["VpcId"] // empty'
 }
 
 function getSubnetIDByName()
