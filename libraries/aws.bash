@@ -30,10 +30,11 @@ function getAutoScaleGroupNameByStackName()
         .["ResourceId"] // empty'
 }
 
-function getInstanceOrderIndexInAutoScaleInstances()
+function getInstanceOrderIndexInAutoScaleInstancesByEIPs()
 {
     local -r stackName="${1}"
     local instanceID="${2}"
+    local -r elasticPublicIPs=("${@:3}")
 
     # Set Default Value
 
@@ -46,6 +47,7 @@ function getInstanceOrderIndexInAutoScaleInstances()
 
     checkNonEmptyString "${stackName}" 'undefined stack name'
     checkNonEmptyString "${instanceID}" 'undefined instance id'
+    checkNonEmptyArray 'undefined elastic public ips' "${elasticPublicIPs[@]}"
 
     # Find Order Index
 
@@ -53,7 +55,7 @@ function getInstanceOrderIndexInAutoScaleInstances()
 
     checkNonEmptyString "${autoScaleGroupName}" 'undefined auto scale group name'
 
-    local -r autoScaleInstances=($(
+    local -r autoScaleInstanceIDs=($(
         aws ec2 describe-instances \
             --filters \
                 'Name=instance-state-name,Values=pending,running' \
@@ -66,19 +68,104 @@ function getInstanceOrderIndexInAutoScaleInstances()
                 "PublicIpAddress": PublicIpAddress
             }' |
         jq \
+            --argjson jqElasticPublicIPs "$(printf '%s\n' "${elasticPublicIPs[@]}" | jq -R | jq -s)" \
             --compact-output \
             --raw-output \
-            '.[] | select(.["PublicIpAddress"] == null) | .["InstanceId"] // empty'
+            '.[] | select(.["PublicIpAddress"] | IN($jqElasticPublicIPs[]) | not) | .["InstanceId"] // empty'
     ))
 
     local i=0
 
-    for ((i = 0; i < ${#autoScaleInstances[@]}; i = i + 1))
+    for ((i = 0; i < ${#autoScaleInstanceIDs[@]}; i = i + 1))
     do
-        if [[ "${autoScaleInstances[i]}" = "${instanceID}" ]]
+        if [[ "${autoScaleInstanceIDs[i]}" = "${instanceID}" ]]
         then
             echo "${i}"
-            i="$((${#autoScaleInstances[@]}))"
+            i="$((${#autoScaleInstanceIDs[@]}))"
+        fi
+    done
+}
+
+function getInstanceOrderIndexInAutoScaleInstancesByENIs()
+{
+    local -r stackName="${1}"
+    local instanceID="${2}"
+    local -r elasticNetworkInterfaceIDs=("${@:3}")
+
+    # Set Default Value
+
+    if [[ "$(isEmptyString "${instanceID}")" = 'true' ]]
+    then
+        instanceID="$(getInstanceID 'false')"
+    fi
+
+    # Validate Values
+
+    checkNonEmptyString "${stackName}" 'undefined stack name'
+    checkNonEmptyString "${instanceID}" 'undefined instance id'
+    checkNonEmptyArray 'undefined elastic network interface ids' "${elasticNetworkInterfaceIDs[@]}"
+
+    # Filter Network Interface IDs By :
+    #     Status Available
+    #     Instance Subnet ID
+    #     Within Network Interface ID List From Configurations
+
+    local -r instanceSubnetID="$(getInstanceSubnetID)"
+
+    checkNonEmptyString "${instanceSubnetID}" 'undefined instance subnet id'
+
+    local -r filterElasticNetworkInterfaceIDs=($(
+        aws ec2 describe-network-interfaces \
+            --filters \
+                'Name=status,Values=available' \
+                "Name=subnet-id,Values=${instanceSubnetID}" \
+            --no-cli-pager \
+            --output 'json' \
+            --query 'sort_by(NetworkInterfaces[*], &NetworkInterfaceId)[*]' |
+        jq \
+            --argjson jqElasticNetworkInterfaceIDs "$(printf '%s\n' "${elasticNetworkInterfaceIDs[@]}" | jq -R | jq -s)" \
+            --compact-output \
+            --raw-output \
+            '.[] | select(.["NetworkInterfaceId"] | IN($jqElasticNetworkInterfaceIDs[])) | .["NetworkInterfaceId"] // empty'
+    ))
+
+    # Get Instance ID List Has :
+    #     Instance Subnet ID
+    #     Auto Scale Group Name
+    #     Stack Name
+    #     NOT IN Filter Elastic Network Interface IDs
+
+    local -r autoScaleGroupName="$(getAutoScaleGroupNameByStackName "${stackName}")"
+
+    checkNonEmptyString "${autoScaleGroupName}" 'undefined auto scale group name'
+
+    local -r autoScaleInstanceIDs=($(
+        aws ec2 describe-instances \
+            --filters \
+                'Name=instance-state-name,Values=pending,running' \
+                "Name=network-interface.subnet-id,Values=${instanceSubnetID}" \
+                "Name=tag:aws:autoscaling:groupName,Values=${autoScaleGroupName}" \
+                "Name=tag:aws:cloudformation:stack-name,Values=${stackName}" \
+            --no-cli-pager \
+            --output 'json' \
+            --query 'sort_by(Reservations[*].Instances[], &LaunchTime)[*]' |
+        jq \
+            --argjson jqFilterElasticNetworkInterfaceIDs "$(printf '%s\n' "${filterElasticNetworkInterfaceIDs[@]}" | jq -R | jq -s)" \
+            --compact-output \
+            --raw-output \
+            '.[] | select(.["NetworkInterfaces"] | all(.["NetworkInterfaceId"] != ($jqFilterElasticNetworkInterfaceIDs[]))) | .["InstanceId"] // empty'
+    ))
+
+    # Find Instance Order Index
+
+    local i=0
+
+    for ((i = 0; i < ${#autoScaleInstanceIDs[@]}; i = i + 1))
+    do
+        if [[ "${autoScaleInstanceIDs[i]}" = "${instanceID}" ]]
+        then
+            echo "${i}:$(arrayToStringWithDelimiter ' ' "${filterElasticNetworkInterfaceIDs[@]}")"
+            i="$((${#autoScaleInstanceIDs[@]}))"
         fi
     done
 }
@@ -155,6 +242,46 @@ function associateElasticPublicIPToInstanceID()
         --instance-id "${instanceID}" \
         --no-cli-pager \
         --region "${region}"
+}
+
+function attachNetworkInterfaceIDToInstanceID()
+{
+    local instanceID="${1}"
+    local -r elasticNetworkInterfaceIDs=("${@:2}")
+
+    # Set Default Value
+
+    if [[ "$(isEmptyString "${instanceID}")" = 'true' ]]
+    then
+        instanceID="$(getInstanceID 'false')"
+    fi
+
+    # Validate Values
+
+    checkNonEmptyString "${instanceID}" 'undefined instance id'
+    checkNonEmptyArray 'undefined elastic network interface ids' "${elasticNetworkInterfaceIDs[@]}"
+
+    # Attach Network Interface
+
+    local -r elasticNetworkInterfaceID="$(
+        aws ec2 describe-network-interfaces \
+            --filters 'Name=status,Values=available' \
+            --network-interface-ids "${elasticNetworkInterfaceIDs[@]}" \
+            --no-cli-pager \
+            --output 'json' |
+        jq \
+            --compact-output \
+            --raw-output \
+            '.["NetworkInterfaces"] | first | .["NetworkInterfaceId"] // empty'
+    )"
+
+    checkNonEmptyString "${elasticNetworkInterfaceID}" 'undefined elastic network interface id'
+
+    aws ec2 attach-network-interface \
+        --device-index '1' \
+        --instance-id "${instanceID}" \
+        --network-interface-id "${elasticNetworkInterfaceID}" \
+        --no-cli-pager
 }
 
 function getAvailableElasticPublicIP()
