@@ -4,6 +4,13 @@
 # ARRAY UTILITIES #
 ###################
 
+function arrayToAppleScriptList()
+{
+    local -r array=("${@}")
+
+    printf '"%s",' "${array[@]}" | sed 's/,$//'
+}
+
 function arrayToParameters()
 {
     local -r array=("${@}")
@@ -1681,6 +1688,16 @@ function formatPath()
     sed -e 's/\/$//g' <<< "${path}"
 }
 
+function footer()
+{
+    local -r title="${1}"
+
+    if [[ "$(isEmptyString "${title}")" = 'false' ]]
+    then
+        echo -e "\n\033[1;33m>>>>>>>>>> \033[1;4;34m${title}\033[0m \033[1;33m<<<<<<<<<<\033[0m\n"
+    fi
+}
+
 function header()
 {
     local -r title="${1}"
@@ -1762,7 +1779,7 @@ function printTable()
                 line="$(sed "${i}q;d" <<< "${tableData}")"
 
                 local numberOfColumns=0
-                numberOfColumns="$(awk -F "${delimiter}" '{print NF}' <<< "${line}")"
+                numberOfColumns="$(awk -F "${delimiter}" '{ print NF }' <<< "${line}")"
 
                 # Add Line Delimiter
 
@@ -1779,7 +1796,7 @@ function printTable()
 
                 for ((j = 1; j <= "${numberOfColumns}"; j = j + 1))
                 do
-                    table="${table}$(printf '#|  %s' "$(cut -d "${delimiter}" -f "${j}" <<< "${line}")")"
+                    table="${table}$(printf '#|  %s' "$(awk -F "${delimiter}" "{ print \$${j} }" <<< "${line}")")"
                 done
 
                 table="${table}#|\n"
