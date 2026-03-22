@@ -14,6 +14,16 @@ function arrayToAppleScriptList()
     fi
 }
 
+function arrayToJMESPathList()
+{
+    local -r array=("${@}")
+
+    if [[ "${#array[@]}" -gt '0' ]]
+    then
+        printf "'%s'," "${array[@]}" | sed 's/,$//'
+    fi
+}
+
 function arrayToParameters()
 {
     local -r array=("${@}")
@@ -496,18 +506,14 @@ function getFileExtension()
 {
     local -r string="${1}"
 
-    local -r fullFileName="$(basename "${string}")"
-
-    echo "${fullFileName##*.}"
+    echo "$(basename "${string##*.}")"
 }
 
 function getFileName()
 {
     local -r string="${1}"
 
-    local -r fullFileName="$(basename "${string}")"
-
-    echo "${fullFileName%.*}"
+    echo "$(basename "${string%.*}")"
 }
 
 function getTemporaryFile()
@@ -985,6 +991,11 @@ function installPortableBinary()
 #################
 # MAC UTILITIES #
 #################
+
+function clearTerminal()
+{
+    clear && printf '\e[3J'
+}
 
 function closeMacApplications()
 {
@@ -1794,7 +1805,10 @@ function indentString()
     local -r indentString="$(escapeSearchPattern "${1}")"
     local -r string="$(escapeSearchPattern "${2}")"
 
-    sed "s@^@${indentString}@g" <<< "${string}"
+    if [[ "$(isEmptyString "${string}")" = 'false' ]]
+    then
+        sed "s@^@${indentString}@g" <<< "${string}"
+    fi
 }
 
 function info()
@@ -2219,6 +2233,12 @@ function isPortOpen()
     fi
 
     echo 'true' && return 0
+}
+
+function pause()
+{
+  read -n 1 -p $'\n\033[1;36mPRESS ANY KEY TO CONTINUE ...\033[0m ' -r -s
+  echo
 }
 
 function redirectJDKTMPDir()
